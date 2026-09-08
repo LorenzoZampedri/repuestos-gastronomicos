@@ -1,0 +1,9 @@
+node_modules
+.git
+.env
+*.md
+.vscode
+.idea
+target
+build
+.next
