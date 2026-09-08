@@ -40,6 +40,7 @@ CREATE TABLE productos (
     nombre VARCHAR(200) NOT NULL,
     descripcion TEXT,
     precio DECIMAL(10,2) NOT NULL,
+    precio_usd DECIMAL(10,2),
     stock_actual INTEGER NOT NULL DEFAULT 0,
     stock_minimo INTEGER DEFAULT 5,
     imagen_url VARCHAR(500),

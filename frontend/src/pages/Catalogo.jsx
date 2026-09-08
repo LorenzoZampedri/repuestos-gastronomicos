@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ShoppingCart, Phone, Package } from 'lucide-react';
+import { Search, ShoppingCart, Phone, Package, Check } from 'lucide-react';
 import api from '../services/api';
+import { useCart } from '../context/CartContext';
 
 const Catalogo = () => {
   const [productos, setProductos] = useState([]);
@@ -8,6 +9,7 @@ const Catalogo = () => {
   const [busqueda, setBusqueda] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [categorias, setCategorias] = useState([]);
+  const { addItem, items } = useCart();
 
   useEffect(() => {
     fetchProductos();
@@ -41,8 +43,13 @@ const Catalogo = () => {
     return coincideBusqueda && coincideCategoria;
   });
 
+  const isInCart = (productId) => items.some(item => item.id === productId);
+
   const contactarWhatsApp = (producto) => {
-    const mensaje = `Hola! Me interesa el producto: ${producto.nombre} - $${producto.precio}`;
+    const precio = producto.precio > 0
+      ? `$${producto.precio.toLocaleString('es-AR')}`
+      : `U$S ${producto.precioUsd || 'Consultar'}`;
+    const mensaje = `Hola! Me interesa el producto: ${producto.nombre} - ${precio}`;
     window.open(`https://wa.me/5491112345678?text=${encodeURIComponent(mensaje)}`, '_blank');
   };
 
@@ -94,14 +101,14 @@ const Catalogo = () => {
       {/* Products Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {productosFiltrados.map((producto) => (
-          <div key={producto.id} className="card group hover:shadow-lg transition-all">
+          <div key={producto.id} className="card group hover:shadow-lg transition-all flex flex-col">
             {/* Product Image */}
             <div className="aspect-square bg-gray-100 rounded-xl mb-4 overflow-hidden">
               {producto.imagenUrl ? (
                 <img 
                   src={producto.imagenUrl} 
                   alt={producto.nombre}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
@@ -111,7 +118,7 @@ const Catalogo = () => {
             </div>
 
             {/* Product Info */}
-            <div>
+            <div className="flex-1">
               <span className="text-xs text-primary-600 font-medium">
                 {producto.categoria?.nombre || 'Sin categoría'}
               </span>
@@ -124,26 +131,59 @@ const Catalogo = () => {
             </div>
 
             {/* Price and Stock */}
-            <div className="mt-4 flex items-center justify-between">
-              <div>
-                <span className="text-2xl font-bold text-primary-800">
-                  ${producto.precio?.toLocaleString('es-AR')}
-                </span>
-                <p className={`text-xs ${producto.stockActual > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {producto.stockActual > 0 ? `Stock disponible: ${producto.stockActual}` : 'Sin stock'}
-                </p>
+            <div className="mt-4">
+              <div className="flex items-baseline gap-2">
+                {producto.precio > 0 && (
+                  <span className="text-2xl font-bold text-primary-800">
+                    ${producto.precio.toLocaleString('es-AR')}
+                  </span>
+                )}
+                {producto.precioUsd > 0 && (
+                  <span className="text-lg font-semibold text-green-700">
+                    U$S {producto.precioUsd}
+                  </span>
+                )}
+                {!producto.precio && !producto.precioUsd && (
+                  <span className="text-sm text-gray-500">Consultar precio</span>
+                )}
               </div>
+              <p className={`text-xs mt-1 ${producto.stockActual > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {producto.stockActual > 0 ? `Stock: ${producto.stockActual}` : 'Sin stock'}
+              </p>
             </div>
 
-            {/* CTA Button */}
-            <button
-              onClick={() => contactarWhatsApp(producto)}
-              disabled={producto.stockActual <= 0}
-              className="mt-4 w-full btn-primary flex items-center justify-center gap-2"
-            >
-              <Phone className="w-4 h-4" />
-              Consultar
-            </button>
+            {/* Action Buttons */}
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => addItem(producto)}
+                disabled={isInCart(producto.id)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-medium text-sm transition-colors ${
+                  isInCart(producto.id)
+                    ? 'bg-green-100 text-green-700 cursor-default'
+                    : 'bg-primary-800 text-white hover:bg-primary-700'
+                }`}
+              >
+                {isInCart(producto.id) ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Agregado
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="w-4 h-4" />
+                    Agregar
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => contactarWhatsApp(producto)}
+                disabled={producto.stockActual <= 0}
+                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                title="Consultar por WhatsApp"
+              >
+                <Phone className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         ))}
       </div>

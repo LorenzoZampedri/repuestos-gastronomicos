@@ -23,6 +23,7 @@ backend/target/
 frontend/node_modules/
 frontend/.next/
 frontend/build/
+frontend/dist/
 
 # Docker
 pgdata/
