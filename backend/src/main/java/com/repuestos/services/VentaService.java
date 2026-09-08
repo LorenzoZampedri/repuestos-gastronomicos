@@ -17,6 +17,7 @@ public class VentaService {
     
     private final VentaRepository ventaRepository;
     private final DetalleVentaRepository detalleVentaRepository;
+    private final PagoRepository pagoRepository;
     private final ProductoService productoService;
     private final ClienteRepository clienteRepository;
     
@@ -83,7 +84,7 @@ public class VentaService {
         pago.setVenta(venta);
         pago.setFecha(LocalDateTime.now());
         
-        Pago pagoGuardado = detalleVentaRepository.savePago(pago);
+        Pago pagoGuardado = pagoRepository.save(pago);
         
         // Actualizar estado de la venta
         BigDecimal montoPagado = venta.getMontoPagado().add(pago.getMonto());
