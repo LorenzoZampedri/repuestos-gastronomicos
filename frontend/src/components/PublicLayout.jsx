@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, Phone, ShoppingCart, X, Trash2, MessageCircle } from 'lucide-react';
+import { Package, Phone, ShoppingCart, X, Trash2, MessageCircle, Plus, Minus } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 const CartDrawer = ({ isOpen, onClose }) => {
-  const { items, removeItem, clearCart, contactWhatsApp } = useCart();
+  const { items, removeItem, updateQuantity, clearCart, contactWhatsApp } = useCart();
 
   if (!isOpen) return null;
 
@@ -49,12 +49,29 @@ const CartDrawer = ({ isOpen, onClose }) => {
                           : 'Consultar'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => removeItem(item.id)}
-                    className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex flex-col items-end justify-between">
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => updateQuantity(item.id, item.cantidad - 1)}
+                        className="w-6 h-6 flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 text-gray-700 transition-colors"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="w-6 text-center text-sm font-medium text-gray-900">{item.cantidad}</span>
+                      <button
+                        onClick={() => updateQuantity(item.id, item.cantidad + 1)}
+                        className="w-6 h-6 flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 text-gray-700 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

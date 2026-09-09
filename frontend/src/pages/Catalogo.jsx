@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ShoppingCart, Phone, Package, Check } from 'lucide-react';
+import { Search, ShoppingCart, Phone, Package } from 'lucide-react';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
 
@@ -156,24 +156,10 @@ const Catalogo = () => {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => addItem(producto)}
-                disabled={isInCart(producto.id)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-medium text-sm transition-colors ${
-                  isInCart(producto.id)
-                    ? 'bg-green-100 text-green-700 cursor-default'
-                    : 'bg-primary-800 text-white hover:bg-primary-700'
-                }`}
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-medium text-sm bg-primary-800 text-white hover:bg-primary-700 transition-colors"
               >
-                {isInCart(producto.id) ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    Agregado
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart className="w-4 h-4" />
-                    Agregar
-                  </>
-                )}
+                <ShoppingCart className="w-4 h-4" />
+                {isInCart(producto.id) ? 'Agregar otro' : 'Agregar'}
               </button>
               <button
                 onClick={() => contactarWhatsApp(producto)}

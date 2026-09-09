@@ -25,12 +25,26 @@ export const CartProvider = ({ children }) => {
     setItems(prev => {
       const existing = prev.find(item => item.id === producto.id);
       if (existing) {
-        toast.success(`${producto.nombre} ya está en el carrito`);
-        return prev;
+        toast.success(`${producto.nombre} +1 en el carrito`);
+        return prev.map(item =>
+          item.id === producto.id ? { ...item, cantidad: item.cantidad + 1 } : item
+        );
       }
       toast.success(`${producto.nombre} agregado al carrito`);
       return [...prev, { ...producto, cantidad: 1 }];
     });
+  };
+
+  const updateQuantity = (productoId, nuevaCantidad) => {
+    if (nuevaCantidad < 1) {
+      removeItem(productoId);
+      return;
+    }
+    setItems(prev =>
+      prev.map(item =>
+        item.id === productoId ? { ...item, cantidad: nuevaCantidad } : item
+      )
+    );
   };
 
   const removeItem = (productoId) => {
@@ -55,7 +69,7 @@ export const CartProvider = ({ children }) => {
         : item.precioUsd
           ? `U$S ${item.precioUsd}`
           : 'Consultar precio';
-      mensaje += `${index + 1}. ${item.nombre} - ${precio}\n`;
+      mensaje += `${index + 1}. ${item.nombre} x${item.cantidad} - ${precio}\n`;
     });
     mensaje += '\n¿Podrían darme más información?';
 
@@ -76,6 +90,7 @@ export const CartProvider = ({ children }) => {
       items,
       addItem,
       removeItem,
+      updateQuantity,
       clearCart,
       itemCount,
       contactWhatsApp,
