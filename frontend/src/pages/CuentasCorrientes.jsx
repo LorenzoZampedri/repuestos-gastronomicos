@@ -9,6 +9,8 @@ const CuentasCorrientes = () => {
   const [busqueda, setBusqueda] = useState('');
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [ventas, setVentas] = useState([]);
+  const [ajustandoSaldo, setAjustandoSaldo] = useState(null);
+  const [montoAjuste, setMontoAjuste] = useState('');
 
   useEffect(() => {
     fetchClientesConDeuda();
@@ -37,6 +39,28 @@ const CuentasCorrientes = () => {
   const handleSeleccionarCliente = (cliente) => {
     setClienteSeleccionado(cliente);
     fetchVentasCliente(cliente.id);
+  };
+
+  const handleRegistrarPago = async (clienteId) => {
+    const monto = parseFloat(montoAjuste);
+    if (!monto || monto <= 0) {
+      toast.error('Ingresá un monto válido');
+      return;
+    }
+    try {
+      await api.patch(`/api/clientes/${clienteId}/saldo`, { monto, tipo: 'restar' });
+      toast.success('Pago registrado');
+      setAjustandoSaldo(null);
+      setMontoAjuste('');
+      const response = await api.get('/api/clientes/deudores');
+      setClientes(response.data);
+      if (clienteSeleccionado?.id === clienteId) {
+        const updated = response.data.find(c => c.id === clienteId);
+        if (updated) setClienteSeleccionado(updated);
+      }
+    } catch (error) {
+      toast.error('Error al ajustar saldo');
+    }
   };
 
   const totalDeuda = clientes.reduce((sum, c) => sum + (c.saldoCorriente || 0), 0);
@@ -166,6 +190,38 @@ const CuentasCorrientes = () => {
                   <p className="text-2xl font-bold text-red-600">
                     ${clienteSeleccionado.saldoCorriente?.toLocaleString('es-AR')}
                   </p>
+                  <button
+                    onClick={() => {
+                      setAjustandoSaldo(clienteSeleccionado.id);
+                      setMontoAjuste('');
+                    }}
+                    className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Registrar pago
+                  </button>
+                  {ajustandoSaldo === clienteSeleccionado.id && (
+                    <div className="mt-2 flex gap-2 justify-end">
+                      <input
+                        type="number"
+                        value={montoAjuste}
+                        onChange={(e) => setMontoAjuste(e.target.value)}
+                        placeholder="Monto"
+                        className="w-24 px-2 py-1 border rounded text-sm"
+                      />
+                      <button
+                        onClick={() => handleRegistrarPago(clienteSeleccionado.id)}
+                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                      >
+                        Pagar
+                      </button>
+                      <button
+                        onClick={() => { setAjustandoSaldo(null); setMontoAjuste(''); }}
+                        className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

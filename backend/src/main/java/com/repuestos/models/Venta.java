@@ -3,6 +3,7 @@ package com.repuestos.models;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -22,10 +23,12 @@ public class Venta {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cliente_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Cliente cliente;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Usuario usuario;
     
     @Column(nullable = false)
@@ -44,10 +47,12 @@ public class Venta {
     private String observaciones;
     
     @OneToMany(mappedBy = "venta", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     @Builder.Default
     private List<DetalleVenta> detalles = new ArrayList<>();
     
     @OneToMany(mappedBy = "venta", cascade = CascadeType.ALL)
+    @JsonIgnoreProperties({"venta", "hibernateLazyInitializer", "handler"})
     @Builder.Default
     private List<Pago> pagos = new ArrayList<>();
     

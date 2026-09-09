@@ -2,6 +2,7 @@ package com.repuestos.models;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ public class Usuario {
     private String username;
     
     @Column(nullable = false)
+    @JsonIgnore
     private String passwordHash;
     
     @Column(nullable = false, length = 100)

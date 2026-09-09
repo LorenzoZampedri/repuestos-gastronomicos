@@ -3,6 +3,8 @@ package com.repuestos.models;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -20,6 +22,7 @@ public class Pago {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "venta_id", nullable = false)
+    @JsonIgnore
     private Venta venta;
     
     @Column(nullable = false, precision = 10, scale = 2)
@@ -42,6 +45,7 @@ public class Pago {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Usuario usuario;
     
     public enum MetodoPago {

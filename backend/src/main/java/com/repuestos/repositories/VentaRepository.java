@@ -16,6 +16,7 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
     @EntityGraph(attributePaths = {"cliente", "usuario"})
     List<Venta> findByFechaBetweenAndEstadoNot(LocalDateTime inicio, LocalDateTime fin, Venta.EstadoVenta estado);
     
+    @EntityGraph(attributePaths = {"cliente", "usuario"})
     List<Venta> findByClienteId(Long clienteId);
     
     @Query("SELECT COALESCE(SUM(v.total), 0) FROM Venta v WHERE v.fecha BETWEEN :inicio AND :fin AND v.estado <> 'ANULADA'")
@@ -24,6 +25,7 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
     @Query("SELECT COALESCE(SUM(v.total), 0) FROM Venta v WHERE v.estado <> 'ANULADA'")
     BigDecimal sumTotalVentas();
     
+    @EntityGraph(attributePaths = {"cliente", "usuario"})
     @Query("SELECT v FROM Venta v WHERE v.estado IN ('PENDIENTE', 'PARCIAL') ORDER BY v.fecha DESC")
     List<Venta> findVentasPendientes();
 }

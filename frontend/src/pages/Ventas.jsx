@@ -1,23 +1,57 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Plus, Eye, Calendar, Filter } from 'lucide-react';
+import { Search, Plus, Eye, Calendar, Filter, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 
 const Ventas = () => {
   const [ventas, setVentas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [fechaInicio, setFechaInicio] = useState(
-    new Date().toISOString().split('T')[0]
-  );
-  const [fechaFin, setFechaFin] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+  const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaFin, setFechaFin] = useState('');
+  const [filtroActivo, setFiltroActivo] = useState('mes');
   const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
 
   useEffect(() => {
-    fetchVentas();
+    aplicarFiltro('mes');
+  }, []);
+
+  useEffect(() => {
+    if (fechaInicio && fechaFin) fetchVentas();
   }, [fechaInicio, fechaFin]);
+
+  const hoy = () => new Date().toISOString().split('T')[0];
+
+  const ayer = () => {
+    const d = new Date(); d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  };
+
+  const semana = () => {
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    return d.toISOString().split('T')[0];
+  };
+
+  const mes = () => {
+    const d = new Date(); d.setDate(d.getDate() - 30);
+    return d.toISOString().split('T')[0];
+  };
+
+  const aplicarFiltro = (tipo) => {
+    setFiltroActivo(tipo);
+    const fin = hoy();
+    let inicio;
+    switch (tipo) {
+      case 'hoy': inicio = fin; break;
+      case 'ayer': inicio = ayer(); break;
+      case 'semana': inicio = semana(); break;
+      case 'mes': inicio = mes(); break;
+      case 'todo': inicio = '2020-01-01'; break;
+      default: inicio = mes();
+    }
+    setFechaInicio(inicio);
+    setFechaFin(fin);
+  };
 
   const fetchVentas = async () => {
     setLoading(true);
@@ -49,6 +83,18 @@ const Ventas = () => {
 
   const totalVentas = ventas.reduce((sum, v) => sum + (v.total || 0), 0);
 
+  const anularVenta = async (id) => {
+    if (!confirm('¿Anular esta venta? Se devolverá el stock.')) return;
+    try {
+      await api.put(`/api/ventas/${id}/anular`);
+      toast.success('Venta anulada');
+      fetchVentas();
+      if (ventaSeleccionada?.id === id) setVentaSeleccionada(null);
+    } catch (error) {
+      toast.error('Error al anular venta');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -63,26 +109,39 @@ const Ventas = () => {
         </Link>
       </div>
 
-      {/* Date Filter */}
+      {/* Filters */}
       <div className="card">
-        <div className="flex flex-col sm:flex-row gap-4 items-end">
-          <div className="flex-1">
-            <label className="label">Fecha inicio</label>
-            <input
-              type="date"
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
-              className="input"
-            />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: 'todo', label: 'Todas' },
+              { key: 'mes', label: 'Último mes' },
+              { key: 'semana', label: 'Última semana' },
+              { key: 'ayer', label: 'Ayer' },
+              { key: 'hoy', label: 'Hoy' },
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => aplicarFiltro(f.key)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  filtroActivo === f.key
+                    ? 'bg-primary-800 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
-          <div className="flex-1">
-            <label className="label">Fecha fin</label>
-            <input
-              type="date"
-              value={fechaFin}
-              onChange={(e) => setFechaFin(e.target.value)}
-              className="input"
-            />
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1">
+              <label className="label">Fecha inicio</label>
+              <input type="date" value={fechaInicio} onChange={(e) => { setFechaInicio(e.target.value); setFiltroActivo(''); }} className="input" />
+            </div>
+            <div className="flex-1">
+              <label className="label">Fecha fin</label>
+              <input type="date" value={fechaFin} onChange={(e) => { setFechaFin(e.target.value); setFiltroActivo(''); }} className="input" />
+            </div>
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-500">Total del período</p>
@@ -144,12 +203,23 @@ const Ventas = () => {
                       {getEstadoBadge(venta.estado)}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={() => setVentaSeleccionada(venta)}
-                        className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setVentaSeleccionada(venta)}
+                          className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {venta.estado !== 'ANULADA' && (
+                          <button
+                            onClick={() => anularVenta(venta.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Anular venta"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -224,12 +294,21 @@ const Ventas = () => {
                 )}
                 
                 <div className="border-t pt-4">
-                  <div className="flex justify-between text-lg font-bold">
-                    <span>Total</span>
-                    <span className="text-primary-800">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-bold">Total</span>
+                    <span className="text-2xl font-bold text-primary-800">
                       ${ventaSeleccionada.total?.toLocaleString('es-AR')}
                     </span>
                   </div>
+                  {ventaSeleccionada.estado !== 'ANULADA' && (
+                    <button
+                      onClick={() => anularVenta(ventaSeleccionada.id)}
+                      className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Anular venta
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
