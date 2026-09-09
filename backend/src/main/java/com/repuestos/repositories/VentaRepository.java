@@ -1,6 +1,7 @@
 package com.repuestos.repositories;
 
 import com.repuestos.models.Venta;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,6 +13,7 @@ import java.util.List;
 @Repository
 public interface VentaRepository extends JpaRepository<Venta, Long> {
     
+    @EntityGraph(attributePaths = {"cliente", "usuario"})
     List<Venta> findByFechaBetweenAndEstadoNot(LocalDateTime inicio, LocalDateTime fin, Venta.EstadoVenta estado);
     
     List<Venta> findByClienteId(Long clienteId);

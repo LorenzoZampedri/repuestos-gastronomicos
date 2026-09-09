@@ -5,6 +5,7 @@ import com.repuestos.repositories.ClienteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -50,5 +51,15 @@ public class ClienteService {
         Cliente cliente = buscarPorId(id);
         cliente.setActivo(false);
         clienteRepository.save(cliente);
+    }
+    
+    public Cliente ajustarSaldo(Long id, BigDecimal monto, String tipo) {
+        Cliente cliente = buscarPorId(id);
+        if ("sumar".equals(tipo)) {
+            cliente.setSaldoCorriente(cliente.getSaldoCorriente().add(monto));
+        } else {
+            cliente.setSaldoCorriente(cliente.getSaldoCorriente().subtract(monto));
+        }
+        return clienteRepository.save(cliente);
     }
 }

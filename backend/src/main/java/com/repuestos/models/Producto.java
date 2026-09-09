@@ -31,6 +31,9 @@ public class Producto {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal precio;
     
+    @Column(precision = 10, scale = 2)
+    private BigDecimal precioUsd;
+    
     @Column(nullable = false)
     @Builder.Default
     private Integer stockActual = 0;

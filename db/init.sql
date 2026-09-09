@@ -152,4 +152,4 @@ INSERT INTO categorias (nombre, descripcion) VALUES
 INSERT INTO configuracion (clave, valor, descripcion) VALUES
 ('whatsapp_number', '+5491112345678', 'Número de WhatsApp para consultas'),
 ('moneda_principal', 'ARS', 'Moneda principal del sistema'),
-(' stock_minimo_default', '5', 'Stock mínimo por defecto para productos');
+('stock_minimo_default', '5', 'Stock mínimo por defecto para productos');

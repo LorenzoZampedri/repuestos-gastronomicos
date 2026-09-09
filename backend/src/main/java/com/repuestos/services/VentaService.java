@@ -75,6 +75,13 @@ public class VentaService {
             productoService.descontarStock(detalle.getProducto().getId(), detalle.getCantidad());
         }
         
+        // Si tiene cliente, acumular deuda (la venta no está pagada al crearse)
+        if (venta.getCliente() != null) {
+            Cliente cliente = venta.getCliente();
+            cliente.setSaldoCorriente(cliente.getSaldoCorriente().add(total));
+            clienteRepository.save(cliente);
+        }
+        
         return ventaGuardada;
     }
     
@@ -98,7 +105,7 @@ public class VentaService {
         // Actualizar saldo del cliente
         if (venta.getCliente() != null) {
             Cliente cliente = venta.getCliente();
-            BigDecimal nuevoSaldo = cliente.getSaldoCorriente().add(pago.getMonto());
+                BigDecimal nuevoSaldo = cliente.getSaldoCorriente().subtract(pago.getMonto());
             cliente.setSaldoCorriente(nuevoSaldo);
             clienteRepository.save(cliente);
         }

@@ -3,11 +3,14 @@ package com.repuestos.controllers;
 import com.repuestos.models.DetalleVenta;
 import com.repuestos.models.Pago;
 import com.repuestos.models.Venta;
+import com.repuestos.models.Usuario;
 import com.repuestos.services.VentaService;
+import com.repuestos.services.UsuarioService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -21,6 +24,7 @@ import java.util.Map;
 public class VentaController {
     
     private final VentaService ventaService;
+    private final UsuarioService usuarioService;
     
     @GetMapping
     public ResponseEntity<List<Venta>> listar(
@@ -46,7 +50,11 @@ public class VentaController {
     
     @PostMapping
     public ResponseEntity<Venta> crear(@RequestBody CrearVentaRequest request) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        Usuario usuario = usuarioService.buscarPorUsername(username);
+        
         Venta venta = Venta.builder()
+            .usuario(usuario)
             .observaciones(request.getObservaciones())
             .build();
         

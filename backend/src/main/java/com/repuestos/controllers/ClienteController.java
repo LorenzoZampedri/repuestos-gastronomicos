@@ -2,10 +2,12 @@ package com.repuestos.controllers;
 
 import com.repuestos.models.Cliente;
 import com.repuestos.services.ClienteService;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -49,5 +51,16 @@ public class ClienteController {
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         clienteService.eliminar(id);
         return ResponseEntity.ok().build();
+    }
+    
+    @PatchMapping("/{id}/saldo")
+    public ResponseEntity<Cliente> ajustarSaldo(@PathVariable Long id, @RequestBody AjustarSaldoRequest request) {
+        return ResponseEntity.ok(clienteService.ajustarSaldo(id, request.getMonto(), request.getTipo()));
+    }
+    
+    @Data
+    static class AjustarSaldoRequest {
+        private BigDecimal monto;
+        private String tipo; // "sumar" o "restar"
     }
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Plus, Edit2, Trash2, Users, Phone, Mail } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Users, Phone, Mail, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 
@@ -8,6 +8,8 @@ const Clientes = () => {
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
+  const [ajustandoSaldo, setAjustandoSaldo] = useState(null);
+  const [montoAjuste, setMontoAjuste] = useState('');
 
   useEffect(() => {
     fetchClientes();
@@ -46,6 +48,24 @@ const Clientes = () => {
       fetchClientes();
     } catch (error) {
       toast.error('Error al eliminar');
+    }
+  };
+
+  const handleAjustarSaldo = async (clienteId, tipo) => {
+    const monto = parseFloat(montoAjuste);
+    if (!monto || monto <= 0) {
+      toast.error('Ingresá un monto válido');
+      return;
+    }
+    
+    try {
+      await api.patch(`/api/clientes/${clienteId}/saldo`, { monto, tipo });
+      toast.success(tipo === 'restar' ? 'Deuda reducida' : 'Deuda aumentada');
+      setAjustandoSaldo(null);
+      setMontoAjuste('');
+      fetchClientes();
+    } catch (error) {
+      toast.error('Error al ajustar saldo');
     }
   };
 
@@ -138,12 +158,46 @@ const Clientes = () => {
 
             {cliente.saldoCorriente > 0 && (
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-500">Saldo pendiente</span>
                   <span className="font-semibold text-red-600">
                     ${cliente.saldoCorriente?.toLocaleString('es-AR')}
                   </span>
                 </div>
+                {ajustandoSaldo === cliente.id ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={montoAjuste}
+                      onChange={(e) => setMontoAjuste(e.target.value)}
+                      placeholder="Monto"
+                      className="input text-sm flex-1"
+                      min="0"
+                      step="0.01"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => handleAjustarSaldo(cliente.id, 'restar')}
+                      className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    >
+                      Pagar
+                    </button>
+                    <button
+                      onClick={() => { setAjustandoSaldo(null); setMontoAjuste(''); }}
+                      className="px-3 py-1 text-xs bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAjustandoSaldo(cliente.id)}
+                    className="w-full flex items-center justify-center gap-1 text-xs text-primary-600 hover:text-primary-800 py-1"
+                  >
+                    <DollarSign className="w-3 h-3" />
+                    Registrar pago
+                  </button>
+                )}
               </div>
             )}
           </div>
