@@ -29,11 +29,12 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 
 ```bash
 # 1. Clonar repositorio
-git clone https://github.com/tu-equipo/repuestos-gastronomicos.git
+git clone https://github.com/LorenzoZampedri/repuestos-gastronomicos.git
 cd repuestos-gastronomicos
 
 # 2. Copiar variables de entorno
-cp .env.example .env
+cp .env.example .env    # Linux/Mac
+copy .env.example .env  # Windows (CMD)
 
 # 3. Levantar con Docker
 docker-compose up -d
@@ -43,7 +44,7 @@ docker-compose up -d
 # Backend: http://localhost:8080
 ```
 
-**Credenciales:** admin / admin123
+**Credenciales iniciales (se crean automáticamente):** admin / admin123
 
 ## 📁 Estructura del Proyecto
 

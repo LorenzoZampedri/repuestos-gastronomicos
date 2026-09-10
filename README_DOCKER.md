@@ -45,11 +45,12 @@
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/tu-equipo/repuestos-gastronomicos.git
+git clone https://github.com/LorenzoZampedri/repuestos-gastronomicos.git
 cd repuestos-gastronomicos
 
 # 2. Copiar archivo de entorno
-cp .env.example .env
+cp .env.example .env    # Linux/Mac
+copy .env.example .env  # Windows (CMD)
 
 # 3. Levantar todo
 docker-compose up -d
@@ -121,7 +122,7 @@ docker-compose --version
 cd /mnt/c/Users/TU_USUARIO/Desktop/repuestos-gastronomicos
 
 # Opción 2: Clonar en Ubuntu
-git clone https://github.com/tu-equipo/repuestos-gastronomicos.git
+git clone https://github.com/LorenzoZampedri/repuestos-gastronomicos.git
 cd repuestos-gastronomicos
 ```
 
@@ -129,7 +130,8 @@ cd repuestos-gastronomicos
 
 ```bash
 # Copiar variables de entorno
-cp .env.example .env
+cp .env.example .env    # Linux/Mac/WSL2
+copy .env.example .env  # Windows (CMD)
 
 # Levantar servicios
 docker-compose up -d
