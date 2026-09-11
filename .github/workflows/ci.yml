@@ -32,14 +32,12 @@ jobs:
       
       - name: Build and test
         working-directory: ./backend
-        run: |
-          chmod +x mvnw
-          ./mvnw clean test
+        run: mvn clean test
       
       - name: Build JAR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         working-directory: ./backend
-        run: ./mvnw clean package -DskipTests
+        run: mvn clean package -DskipTests
 
   # ═══════════════════════════════════════════════════════════
   # TEST FRONTEND
