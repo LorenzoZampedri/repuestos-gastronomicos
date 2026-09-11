@@ -216,7 +216,7 @@ END
 if [ "${MVNW_VERBOSE-}" = true ]; then
   echo " - Compiling Downloader.java ..." >&2
 fi
-"$JAVACMD" -classpath "$java_source" Downloader "$distributionUrl" "$targetZip" || {
+"$JAVACMD" "$java_source" "$distributionUrl" "$targetZip" || {
   echo "Failed to download $distributionUrl" >&2
   exit 1
 }
