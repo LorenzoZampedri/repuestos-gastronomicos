@@ -32,6 +32,9 @@
 set -euf
 [ "${MVNW_VERBOSE-}" != debug ] || set -x
 
+# Determine the project's base directory
+MVNW_PROJECTBASEDIR="${MVNW_PROJECTBASEDIR:-$(cd "$(dirname "$0")" && pwd)}"
+
 # OS specific support.
 native_path() { printf %s\\n "$1"; }
 case "$(uname)" in
