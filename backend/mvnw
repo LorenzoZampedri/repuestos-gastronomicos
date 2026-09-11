@@ -241,6 +241,15 @@ unzip ${MVNW_VERBOSE:+-q} "$targetZip" -d "$MAVEN_HOME" || {
 }
 echo "$distributionUrl" >"$MAVEN_HOME/.distributionUrl"
 
+# Move contents from inner directory if it exists
+for dir in "$MAVEN_HOME"/apache-maven-*; do
+  if [ -d "$dir" ]; then
+    mv "$dir"/* "$MAVEN_HOME/"
+    rmdir "$dir"
+    break
+  fi
+done
+
 # Remove zip download
 clean
 
