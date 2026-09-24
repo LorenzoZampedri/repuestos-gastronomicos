@@ -78,7 +78,10 @@ public class VentaService {
         // Si tiene cliente, acumular deuda (la venta no está pagada al crearse)
         if (venta.getCliente() != null) {
             Cliente cliente = venta.getCliente();
-            cliente.setSaldoCorriente(cliente.getSaldoCorriente().add(total));
+            BigDecimal saldoActual = cliente.getSaldoCorriente() == null
+                    ? BigDecimal.ZERO
+                    : cliente.getSaldoCorriente();
+            cliente.setSaldoCorriente(saldoActual.add(total));
             clienteRepository.save(cliente);
         }
         

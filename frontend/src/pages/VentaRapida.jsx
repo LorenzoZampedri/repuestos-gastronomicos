@@ -99,6 +99,10 @@ const VentaRapida = () => {
       toast.error('El carrito está vacío');
       return;
     }
+    if (metodoPago === 'CUENTA_CORRIENTE' && !clienteSeleccionado) {
+      toast.error('Seleccioná un cliente para registrar la deuda');
+      return;
+    }
 
     setProcesando(true);
     try {
@@ -117,7 +121,7 @@ const VentaRapida = () => {
       const response = await api.post('/api/ventas', payload);
       
       // Registrar pago
-      if (response.data.id) {
+      if (response.data.id && metodoPago !== 'CUENTA_CORRIENTE') {
         await api.post(`/api/ventas/${response.data.id}/pago`, {
           monto: total,
           metodoPago: metodoPago,
@@ -292,6 +296,7 @@ const VentaRapida = () => {
               <option value="EFECTIVO">Efectivo</option>
               <option value="TARJETA">Tarjeta</option>
               <option value="TRANSFERENCIA">Transferencia</option>
+              <option value="CUENTA_CORRIENTE">Cuenta corriente</option>
             </select>
           </div>
 

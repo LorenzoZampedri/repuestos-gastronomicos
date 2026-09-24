@@ -55,10 +55,23 @@ public class ClienteService {
     
     public Cliente ajustarSaldo(Long id, BigDecimal monto, String tipo) {
         Cliente cliente = buscarPorId(id);
+        if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El monto debe ser mayor a cero");
+        }
+
+        BigDecimal saldoActual = cliente.getSaldoCorriente() == null
+                ? BigDecimal.ZERO
+                : cliente.getSaldoCorriente();
+
         if ("sumar".equals(tipo)) {
-            cliente.setSaldoCorriente(cliente.getSaldoCorriente().add(monto));
+            cliente.setSaldoCorriente(saldoActual.add(monto));
+        } else if ("restar".equals(tipo)) {
+            if (monto.compareTo(saldoActual) > 0) {
+                throw new IllegalArgumentException("El pago no puede superar la deuda pendiente");
+            }
+            cliente.setSaldoCorriente(saldoActual.subtract(monto));
         } else {
-            cliente.setSaldoCorriente(cliente.getSaldoCorriente().subtract(monto));
+            throw new IllegalArgumentException("Tipo de ajuste inválido");
         }
         return clienteRepository.save(cliente);
     }

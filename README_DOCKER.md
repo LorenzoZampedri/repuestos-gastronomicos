@@ -392,7 +392,7 @@ Asegurar que el Excel tenga las siguientes columnas (en cualquier orden):
 | codigo | nombre | descripcion | precio | stock | categoria |
 |--------|--------|-------------|--------|-------|-----------|
 | QUEM-4B-001 | Quemador 4 bocas | Quemador industrial para horno | 15000.50 | 25 | Quemadores |
-| FRE-20L-001 | Freidora 20L | Freidora industrial | 280000 | 8 | Freidoras |
+| FRE-20L-001 | Freidora 20L | Freidora industcd git pullrial | 280000 | 8 | Freidoras |
 
 ### Paso 2: Instalar dependencias Python
 

@@ -41,6 +41,7 @@ public class ProductoService {
     }
     
     public Producto guardar(Producto producto) {
+        normalizarCodigoBarras(producto);
         return productoRepository.save(producto);
     }
     
@@ -54,7 +55,14 @@ public class ProductoService {
         producto.setCodigoBarras(productoActualizado.getCodigoBarras());
         producto.setImagenUrl(productoActualizado.getImagenUrl());
         producto.setCategoria(productoActualizado.getCategoria());
+        normalizarCodigoBarras(producto);
         return productoRepository.save(producto);
+    }
+
+    private void normalizarCodigoBarras(Producto producto) {
+        if (producto.getCodigoBarras() != null && producto.getCodigoBarras().isBlank()) {
+            producto.setCodigoBarras(null);
+        }
     }
     
     @Transactional

@@ -5,6 +5,7 @@ import api from '../services/api';
 
 const CuentasCorrientes = () => {
   const [clientes, setClientes] = useState([]);
+  const [todosLosClientes, setTodosLosClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
@@ -18,8 +19,10 @@ const CuentasCorrientes = () => {
 
   const fetchClientesConDeuda = async () => {
     try {
-      const response = await api.get('/api/clientes/deudores');
-      setClientes(response.data);
+      const clientesResponse = await api.get('/api/clientes');
+      setClientes(clientesResponse.data);
+      setTodosLosClientes(clientesResponse.data);
+      return clientesResponse.data;
     } catch (error) {
       toast.error('Error al cargar clientes');
     } finally {
@@ -52,18 +55,19 @@ const CuentasCorrientes = () => {
       toast.success('Pago registrado');
       setAjustandoSaldo(null);
       setMontoAjuste('');
-      const response = await api.get('/api/clientes/deudores');
-      setClientes(response.data);
+      const clientesActualizados = await fetchClientesConDeuda();
       if (clienteSeleccionado?.id === clienteId) {
-        const updated = response.data.find(c => c.id === clienteId);
+        const updated = clientesActualizados.find(c => c.id === clienteId);
         if (updated) setClienteSeleccionado(updated);
       }
     } catch (error) {
-      toast.error('Error al ajustar saldo');
+      toast.error(error.response?.data?.message || 'Error al ajustar saldo');
     }
   };
 
-  const totalDeuda = clientes.reduce((sum, c) => sum + (c.saldoCorriente || 0), 0);
+  const clientesConDeuda = clientes.filter(c => (c.saldoCorriente || 0) > 0);
+  const totalDeuda = clientesConDeuda.reduce((sum, c) => sum + (c.saldoCorriente || 0), 0);
+  const clientesAlDia = todosLosClientes.filter(c => (c.saldoCorriente || 0) <= 0).length;
 
   const clientesFiltrados = clientes.filter(c =>
     c.nombre.toLowerCase().includes(busqueda.toLowerCase())
@@ -94,7 +98,7 @@ const CuentasCorrientes = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Clientes con deuda</p>
-              <p className="text-2xl font-bold text-gray-900">{clientes.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{clientesConDeuda.length}</p>
             </div>
           </div>
         </div>
@@ -118,7 +122,7 @@ const CuentasCorrientes = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Clientes al día</p>
-              <p className="text-2xl font-bold text-green-600">--</p>
+              <p className="text-2xl font-bold text-green-600">{clientesAlDia}</p>
             </div>
           </div>
         </div>
@@ -142,7 +146,7 @@ const CuentasCorrientes = () => {
         {/* Clients List */}
         <div className="lg:col-span-1">
           <div className="card">
-            <h3 className="font-semibold text-gray-900 mb-4">Clientes con Deuda</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">Clientes</h3>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {clientesFiltrados.map((cliente) => (
                 <button
@@ -159,8 +163,10 @@ const CuentasCorrientes = () => {
                       <p className="font-medium text-gray-900">{cliente.nombre}</p>
                       <p className="text-sm text-gray-500">{cliente.telefono}</p>
                     </div>
-                    <span className="font-semibold text-red-600">
-                      ${cliente.saldoCorriente?.toLocaleString('es-AR')}
+                    <span className={`font-semibold ${cliente.saldoCorriente > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {cliente.saldoCorriente > 0
+                        ? `$${cliente.saldoCorriente.toLocaleString('es-AR')}`
+                        : 'Al día'}
                     </span>
                   </div>
                 </button>
@@ -190,7 +196,7 @@ const CuentasCorrientes = () => {
                   <p className="text-2xl font-bold text-red-600">
                     ${clienteSeleccionado.saldoCorriente?.toLocaleString('es-AR')}
                   </p>
-                  <button
+                  {clienteSeleccionado.saldoCorriente > 0 && <button
                     onClick={() => {
                       setAjustandoSaldo(clienteSeleccionado.id);
                       setMontoAjuste('');
@@ -198,14 +204,17 @@ const CuentasCorrientes = () => {
                     className="mt-2 text-sm text-blue-600 hover:text-blue-800"
                   >
                     Registrar pago
-                  </button>
-                  {ajustandoSaldo === clienteSeleccionado.id && (
+                  </button>}
+                  {ajustandoSaldo === clienteSeleccionado.id && clienteSeleccionado.saldoCorriente > 0 && (
                     <div className="mt-2 flex gap-2 justify-end">
                       <input
                         type="number"
                         value={montoAjuste}
                         onChange={(e) => setMontoAjuste(e.target.value)}
                         placeholder="Monto"
+                        min="0.01"
+                        max={clienteSeleccionado.saldoCorriente}
+                        step="0.01"
                         className="w-24 px-2 py-1 border rounded text-sm"
                       />
                       <button

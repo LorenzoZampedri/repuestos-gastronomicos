@@ -74,6 +74,7 @@ const ProductoForm = () => {
     try {
       const payload = {
         ...formData,
+        codigoBarras: formData.codigoBarras.trim() || null,
         precio: parseFloat(formData.precio),
         stockActual: parseInt(formData.stockActual) || 0,
         stockMinimo: parseInt(formData.stockMinimo) || 5,
