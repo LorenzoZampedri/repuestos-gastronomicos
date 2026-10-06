@@ -237,9 +237,11 @@ const CuentasCorrientes = () => {
               <h4 className="font-medium text-gray-700 mb-3">Historial de ventas</h4>
               <div className="space-y-3">
                 {ventas.map((venta) => (
-                  <div 
+                    <div 
                     key={venta.id} 
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => window.location.href = `/ventas#venta-${venta.id}`}
+                    title="Ver venta en historial"
                   >
                     <div>
                       <p className="font-medium text-gray-900">

@@ -174,10 +174,10 @@ const Ventas = () => {
               </thead>
               <tbody>
                 {ventas.map((venta) => (
-                  <tr key={venta.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-sm font-mono text-gray-600">
-                      {venta.id}
-                    </td>
+                   <tr key={venta.id} id={`venta-${venta.id}`} className="border-b border-gray-100 hover:bg-gray-50">
+                     <td className="py-3 px-4 text-sm font-mono text-gray-600">
+                       #{venta.id}
+                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Calendar className="w-4 h-4 text-gray-400" />

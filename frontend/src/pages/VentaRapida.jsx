@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Minus, Trash2, ShoppingCart, ArrowLeft, CreditCard } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -14,6 +14,9 @@ const VentaRapida = () => {
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
   const [procesando, setProcesando] = useState(false);
   const [busquedaCliente, setBusquedaCliente] = useState('');
+  const [tipoOperacion, setTipoOperacion] = useState('VENTA'); // VENTA | DEUDA
+  const [montoDeuda, setMontoDeuda] = useState('');
+  const [observacionesDeuda, setObservacionesDeuda] = useState('');
 
   useEffect(() => {
     fetchProductos();
@@ -94,13 +97,35 @@ const VentaRapida = () => {
     sum + (item.producto.precio * item.cantidad), 0
   );
 
-  const handleCompra = async () => {
-    if (carrito.length === 0) {
-      toast.error('El carrito está vacío');
+    const handleCompra = async () => {
+    if (tipoOperacion === 'DEUDA') {
+      if (!clienteSeleccionado) {
+        toast.error('Seleccioná un cliente para cargar la deuda');
+        return;
+      }
+      const monto = parseFloat(montoDeuda);
+      if (!monto || monto <= 0) {
+        toast.error('Ingresá un monto válido');
+        return;
+      }
+      setProcesando(true);
+      try {
+        await api.patch(/api/clientes//saldo, {
+          monto,
+          tipo: 'sumar'
+        });
+        toast.success('Deuda registrada exitosamente');
+        navigate('/cuentas-corrientes');
+      } catch (error) {
+        toast.error(error.response?.data?.message || 'Error al registrar deuda');
+      } finally {
+        setProcesando(false);
+      }
       return;
     }
-    if (metodoPago === 'CUENTA_CORRIENTE' && !clienteSeleccionado) {
-      toast.error('Seleccioná un cliente para registrar la deuda');
+
+    if (carrito.length === 0) {
+      toast.error('El carrito está vacío');
       return;
     }
 
@@ -115,8 +140,27 @@ const VentaRapida = () => {
       const payload = {
         clienteId: clienteSeleccionado ? parseInt(clienteSeleccionado) : null,
         detalles,
-        observaciones: ''
+        observaciones: observacionesDeuda || ''
       };
+
+      const response = await api.post('/api/ventas', payload);
+      
+      if (response.data.id && metodoPago !== 'CUENTA_CORRIENTE') {
+        await api.post(/api/ventas//pago, {
+          monto: total,
+          metodoPago: metodoPago,
+          moneda: 'ARS'
+        });
+      }
+
+      toast.success('Venta registrada exitosamente!');
+      navigate('/ventas');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error al procesar la venta');
+    } finally {
+      setProcesando(false);
+    }
+  };
 
       const response = await api.post('/api/ventas', payload);
       
@@ -129,7 +173,7 @@ const VentaRapida = () => {
         });
       }
 
-      toast.success('¡Venta registrada exitosamente!');
+      toast.success('Â¡Venta registrada exitosamente!');
       navigate('/ventas');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Error al procesar la venta');
@@ -142,30 +186,137 @@ const VentaRapida = () => {
     <div className="h-[calc(100vh-8rem)] flex flex-col lg:flex-row gap-6">
       {/* Left: Product Selection */}
       <div className="flex-1 flex flex-col">
-        <div className="flex items-center gap-4 mb-4">
-          <button
-            onClick={() => navigate('/ventas')}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900">Venta Rápida</h1>
-        </div>
-
-        {/* Search */}
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar producto por nombre o código..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="input pl-10"
-              autoFocus
-            />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/ventas')}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {tipoOperacion === 'VENTA' ? 'Venta Rápida' : 'Cargar Deuda'}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-700">Tipo:</label>
+            <select
+              value={tipoOperacion}
+              onChange={(e) => setTipoOperacion(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="VENTA">Venta</option>
+              <option value="DEUDA">Cargar deuda</option>
+            </select>
           </div>
         </div>
+
+        {tipoOperacion === 'VENTA' && (
+          <>
+            {/* Search */}
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar producto por nombre o código..."
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  className="input pl-10"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Products Grid */}
+            <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {productosFiltrados.map((producto) => (
+                <button
+                  key={producto.id}
+                  onClick={() => agregarAlCarrito(producto)}
+                  className="card text-left hover:shadow-md hover:border-primary-300 transition-all"
+                >
+                  <div className="w-full h-20 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
+                    {producto.imagenUrl ? (
+                      <img 
+                        src={producto.imagenUrl} 
+                        alt={producto.nombre}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    ) : (
+                      <ShoppingCart className="w-8 h-8 text-gray-300" />
+                    )}
+                  </div>
+                  <p className="font-medium text-gray-900 text-sm truncate">{producto.nombre}</p>
+                  <p className="text-xs text-gray-500">{producto.codigoBarras}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="font-bold text-primary-800">
+                      
+                    </span>
+                    <span className={	ext-xs }>
+                      Stock: {producto.stockActual}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {tipoOperacion === 'DEUDA' && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="card max-w-md w-full">
+              <h2 className="text-lg font-semibold mb-4">Cargar deuda a cliente</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="label">Cliente</label>
+                  <input
+                    type="text"
+                    placeholder="Buscar cliente..."
+                    value={busquedaCliente}
+                    onChange={(e) => setBusquedaCliente(e.target.value)}
+                    className="input mb-2"
+                  />
+                  <select
+                    value={clienteSeleccionado}
+                    onChange={(e) => setClienteSeleccionado(e.target.value)}
+                    className="input"
+                  >
+                    <option value="">Seleccionar cliente</option>
+                    {clientesFiltrados.map(cliente => (
+                      <option key={cliente.id} value={cliente.id}>
+                        {cliente.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Monto de la deuda</label>
+                  <input
+                    type="number"
+                    value={montoDeuda}
+                    onChange={(e) => setMontoDeuda(e.target.value)}
+                    placeholder="0.00"
+                    min="0.01"
+                    step="0.01"
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="label">Observaciones</label>
+                  <textarea
+                    value={observacionesDeuda}
+                    onChange={(e) => setObservacionesDeuda(e.target.value)}
+                    placeholder="Motivo de la deuda..."
+                    className="input"
+                    rows="3"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
         {/* Products Grid */}
         <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -216,8 +367,8 @@ const VentaRapida = () => {
           {carrito.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <ShoppingCart className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-              <p>El carrito está vacío</p>
-              <p className="text-sm">Seleccioná un producto</p>
+              <p>El carrito estÃ¡ vacÃ­o</p>
+              <p className="text-sm">SeleccionÃ¡ un producto</p>
             </div>
           ) : (
             carrito.map((item) => (
@@ -276,7 +427,7 @@ const VentaRapida = () => {
               onChange={(e) => setClienteSeleccionado(e.target.value)}
               className="input text-sm"
             >
-              <option value="">Venta anónima</option>
+              <option value="">Venta anÃ³nima</option>
               {clientesFiltrados.map(cliente => (
                 <option key={cliente.id} value={cliente.id}>
                   {cliente.nombre}
@@ -287,7 +438,7 @@ const VentaRapida = () => {
 
           {/* Payment Method */}
           <div>
-            <label className="label">Método de pago</label>
+            <label className="label">MÃ©todo de pago</label>
             <select
               value={metodoPago}
               onChange={(e) => setMetodoPago(e.target.value)}
