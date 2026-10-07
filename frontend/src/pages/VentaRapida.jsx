@@ -110,7 +110,7 @@ const VentaRapida = () => {
       }
       setProcesando(true);
       try {
-        await api.patch(/api/clientes//saldo, {
+        await api.patch(`/api/clientes/${clienteSeleccionado}/saldo`, {
           monto,
           tipo: 'sumar'
         });
@@ -146,26 +146,6 @@ const VentaRapida = () => {
       const response = await api.post('/api/ventas', payload);
       
       if (response.data.id && metodoPago !== 'CUENTA_CORRIENTE') {
-        await api.post(/api/ventas//pago, {
-          monto: total,
-          metodoPago: metodoPago,
-          moneda: 'ARS'
-        });
-      }
-
-      toast.success('Venta registrada exitosamente!');
-      navigate('/ventas');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Error al procesar la venta');
-    } finally {
-      setProcesando(false);
-    }
-  };
-
-      const response = await api.post('/api/ventas', payload);
-      
-      // Registrar pago
-      if (response.data.id && metodoPago !== 'CUENTA_CORRIENTE') {
         await api.post(`/api/ventas/${response.data.id}/pago`, {
           monto: total,
           metodoPago: metodoPago,
@@ -173,7 +153,7 @@ const VentaRapida = () => {
         });
       }
 
-      toast.success('Â¡Venta registrada exitosamente!');
+      toast.success('Venta registrada exitosamente!');
       navigate('/ventas');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Error al procesar la venta');
@@ -251,9 +231,9 @@ const VentaRapida = () => {
                   <p className="text-xs text-gray-500">{producto.codigoBarras}</p>
                   <div className="flex items-center justify-between mt-2">
                     <span className="font-bold text-primary-800">
-                      
+                      ${producto.precio?.toLocaleString('es-AR')}
                     </span>
-                    <span className={	ext-xs }>
+                    <span className={`text-xs ${producto.stockActual <= 5 ? 'text-red-500' : 'text-gray-500'}`}>
                       Stock: {producto.stockActual}
                     </span>
                   </div>
@@ -316,40 +296,6 @@ const VentaRapida = () => {
             </div>
           </div>
         )}
-      </div>
-
-        {/* Products Grid */}
-        <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {productosFiltrados.map((producto) => (
-            <button
-              key={producto.id}
-              onClick={() => agregarAlCarrito(producto)}
-              className="card text-left hover:shadow-md hover:border-primary-300 transition-all"
-            >
-              <div className="w-full h-20 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
-                {producto.imagenUrl ? (
-                  <img 
-                    src={producto.imagenUrl} 
-                    alt={producto.nombre}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                ) : (
-                  <ShoppingCart className="w-8 h-8 text-gray-300" />
-                )}
-              </div>
-              <p className="font-medium text-gray-900 text-sm truncate">{producto.nombre}</p>
-              <p className="text-xs text-gray-500">{producto.codigoBarras}</p>
-              <div className="flex items-center justify-between mt-2">
-                <span className="font-bold text-primary-800">
-                  ${producto.precio?.toLocaleString('es-AR')}
-                </span>
-                <span className={`text-xs ${producto.stockActual <= 5 ? 'text-red-500' : 'text-gray-500'}`}>
-                  Stock: {producto.stockActual}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Right: Cart */}
