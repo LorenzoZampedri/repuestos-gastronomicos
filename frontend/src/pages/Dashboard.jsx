@@ -9,13 +9,13 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../services/api';
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [metrica, setMetrica] = useState('monto');
+  const [metricasActivas, setMetricasActivas] = useState(['monto']);
 
   useEffect(() => {
     fetchStats();
@@ -82,7 +82,24 @@ const Dashboard = () => {
     ventas: { label: 'Ventas', dataKey: 'cantidadVentas', color: '#16a34a', format: formatNumber },
     productos: { label: 'Productos', dataKey: 'cantidadProductos', color: '#ea580c', format: formatNumber },
   };
-  const metricaActual = metricas[metrica];
+
+  const toggleMetrica = (key) => {
+    setMetricasActivas((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
+  const formatearTicket = (value, name) => {
+    const cfg = Object.values(metricas).find((m) => m.label === name);
+    return [cfg ? cfg.format(value) : value, name];
+  };
+
+  const hayMonto = metricasActivas.includes('monto');
+  const hayConteo = metricasActivas.some((key) => key !== 'monto');
+  const usaDobleEje = hayMonto && hayConteo;
+
+  const yAxisIdFor = (key) => (usaDobleEje && key !== 'monto' ? 'right' : 'left');
+  const leftFormatter = hayMonto ? formatCurrency : formatNumber;
 
   return (
     <div className="space-y-6">
@@ -120,20 +137,27 @@ const Dashboard = () => {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Ventas de la Semana</h3>
             <div className="flex rounded-lg bg-gray-100 p-1">
-              {Object.entries(metricas).map(([key, cfg]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setMetrica(key)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    metrica === key
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {cfg.label}
-                </button>
-              ))}
+              {Object.entries(metricas).map(([key, cfg]) => {
+                const activa = metricasActivas.includes(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleMetrica(key)}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      activa
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    <span
+                      className="inline-block w-2.5 h-2.5 rounded-full mr-1.5 align-middle"
+                      style={{ backgroundColor: activa ? cfg.color : '#d1d5db' }}
+                    />
+                    {cfg.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="h-64">
@@ -141,16 +165,43 @@ const Dashboard = () => {
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                <YAxis stroke="#6b7280" fontSize={12} tickFormatter={metricaActual.format} />
+                <YAxis
+                  yAxisId="left"
+                  stroke="#6b7280"
+                  fontSize={12}
+                  tickFormatter={leftFormatter}
+                />
+                {usaDobleEje && (
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    stroke="#6b7280"
+                    fontSize={12}
+                    allowDecimals={false}
+                    tickFormatter={formatNumber}
+                  />
+                )}
                 <Tooltip 
-                  formatter={(value) => [metricaActual.format(value), metricaActual.label]}
+                  formatter={formatearTicket}
                   contentStyle={{ 
                     backgroundColor: 'white', 
                     border: '1px solid #e5e7eb',
                     borderRadius: '8px'
                   }}
                 />
-                <Bar dataKey={metricaActual.dataKey} fill={metricaActual.color} radius={[4, 4, 0, 0]} />
+                <Legend />
+                {Object.entries(metricas)
+                  .filter(([key]) => metricasActivas.includes(key))
+                  .map(([key, cfg]) => (
+                    <Bar
+                      key={key}
+                      dataKey={cfg.dataKey}
+                      name={cfg.label}
+                      fill={cfg.color}
+                      yAxisId={yAxisIdFor(key)}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  ))}
               </BarChart>
             </ResponsiveContainer>
           </div>
