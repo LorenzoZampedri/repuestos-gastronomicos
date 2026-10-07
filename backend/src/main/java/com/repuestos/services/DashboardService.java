@@ -48,12 +48,13 @@ public class DashboardService {
             LocalDate dia = hoy.minusDays(i);
             LocalDateTime inicio = dia.atStartOfDay();
             LocalDateTime fin = dia.atTime(LocalTime.MAX);
-            BigDecimal total = ventaService.ventasPorPeriodo(inicio, fin);
             
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("name", nombres[dia.getDayOfWeek().getValue() - 1]);
             item.put("fecha", dia.toString());
-            item.put("ventas", total);
+            item.put("monto", ventaService.ventasPorPeriodo(inicio, fin));
+            item.put("cantidadVentas", ventaService.cantidadVentasPorPeriodo(inicio, fin));
+            item.put("cantidadProductos", ventaService.cantidadProductosPorPeriodo(inicio, fin));
             resultado.add(item);
         }
         

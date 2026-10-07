@@ -15,6 +15,7 @@ import api from '../services/api';
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [metrica, setMetrica] = useState('monto');
 
   useEffect(() => {
     fetchStats();
@@ -74,6 +75,14 @@ const Dashboard = () => {
   const chartData = stats?.ventasSemana || [];
 
   const formatCurrency = (value) => `$${Number(value || 0).toLocaleString('es-AR')}`;
+  const formatNumber = (value) => Number(value || 0).toLocaleString('es-AR');
+
+  const metricas = {
+    monto: { label: 'Monto', dataKey: 'monto', color: '#1e40af', format: formatCurrency },
+    ventas: { label: 'Ventas', dataKey: 'cantidadVentas', color: '#16a34a', format: formatNumber },
+    productos: { label: 'Productos', dataKey: 'cantidadProductos', color: '#ea580c', format: formatNumber },
+  };
+  const metricaActual = metricas[metrica];
 
   return (
     <div className="space-y-6">
@@ -108,22 +117,40 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sales Chart */}
         <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Ventas de la Semana</h3>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Ventas de la Semana</h3>
+            <div className="flex rounded-lg bg-gray-100 p-1">
+              {Object.entries(metricas).map(([key, cfg]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setMetrica(key)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    metrica === key
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {cfg.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                <YAxis stroke="#6b7280" fontSize={12} tickFormatter={formatCurrency} />
+                <YAxis stroke="#6b7280" fontSize={12} tickFormatter={metricaActual.format} />
                 <Tooltip 
-                  formatter={(value) => [formatCurrency(value), 'Vendido']}
+                  formatter={(value) => [metricaActual.format(value), metricaActual.label]}
                   contentStyle={{ 
                     backgroundColor: 'white', 
                     border: '1px solid #e5e7eb',
                     borderRadius: '8px'
                   }}
                 />
-                <Bar dataKey="ventas" fill="#1e40af" radius={[4, 4, 0, 0]} />
+                <Bar dataKey={metricaActual.dataKey} fill={metricaActual.color} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
