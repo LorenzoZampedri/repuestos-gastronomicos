@@ -71,16 +71,9 @@ const Dashboard = () => {
     }
   ];
 
-  // Mock data for chart
-  const chartData = [
-    { name: 'Lun', ventas: 4000 },
-    { name: 'Mar', ventas: 3000 },
-    { name: 'Mié', ventas: 5000 },
-    { name: 'Jue', ventas: 4500 },
-    { name: 'Vie', ventas: 6000 },
-    { name: 'Sáb', ventas: 5500 },
-    { name: 'Dom', ventas: 2000 },
-  ];
+  const chartData = stats?.ventasSemana || [];
+
+  const formatCurrency = (value) => `$${Number(value || 0).toLocaleString('es-AR')}`;
 
   return (
     <div className="space-y-6">
@@ -121,8 +114,9 @@ const Dashboard = () => {
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                <YAxis stroke="#6b7280" fontSize={12} />
+                <YAxis stroke="#6b7280" fontSize={12} tickFormatter={formatCurrency} />
                 <Tooltip 
+                  formatter={(value) => [formatCurrency(value), 'Vendido']}
                   contentStyle={{ 
                     backgroundColor: 'white', 
                     border: '1px solid #e5e7eb',

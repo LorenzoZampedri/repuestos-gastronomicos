@@ -135,6 +135,10 @@ public class VentaService {
         return ventaRepository.sumVentasPorPeriodo(inicio, fin);
     }
     
+    public BigDecimal ventasPorPeriodo(LocalDateTime inicio, LocalDateTime fin) {
+        return ventaRepository.sumVentasPorPeriodo(inicio, fin);
+    }
+    
     public BigDecimal totalVentas() {
         return ventaRepository.sumTotalVentas();
     }
