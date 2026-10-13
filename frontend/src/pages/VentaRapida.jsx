@@ -313,8 +313,8 @@ const VentaRapida = () => {
           {carrito.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <ShoppingCart className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-              <p>El carrito estÃ¡ vacÃ­o</p>
-              <p className="text-sm">SeleccionÃ¡ un producto</p>
+              <p>El carrito esta vacio</p>
+              <p className="text-sm">Selecciona un producto</p>
             </div>
           ) : (
             carrito.map((item) => (
@@ -373,7 +373,7 @@ const VentaRapida = () => {
               onChange={(e) => setClienteSeleccionado(e.target.value)}
               className="input text-sm"
             >
-              <option value="">Venta anÃ³nima</option>
+              <option value="">Venta anonima</option>
               {clientesFiltrados.map(cliente => (
                 <option key={cliente.id} value={cliente.id}>
                   {cliente.nombre}
@@ -384,7 +384,7 @@ const VentaRapida = () => {
 
           {/* Payment Method */}
           <div>
-            <label className="label">MÃ©todo de pago</label>
+            <label className="label">Metodo de pago</label>
             <select
               value={metodoPago}
               onChange={(e) => setMetodoPago(e.target.value)}
