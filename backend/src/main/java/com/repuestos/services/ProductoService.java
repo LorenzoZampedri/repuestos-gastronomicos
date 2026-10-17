@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Service
@@ -13,6 +15,7 @@ import java.util.List;
 public class ProductoService {
     
     private final ProductoRepository productoRepository;
+    private final ConfiguracionService configuracionService;
     
     public List<Producto> listarTodos() {
         return productoRepository.findByActivoTrue();
@@ -42,6 +45,7 @@ public class ProductoService {
     
     public Producto guardar(Producto producto) {
         normalizarCodigoBarras(producto);
+        sincronizarPrecioArs(producto);
         return productoRepository.save(producto);
     }
     
@@ -49,14 +53,24 @@ public class ProductoService {
         Producto producto = buscarPorId(id);
         producto.setNombre(productoActualizado.getNombre());
         producto.setDescripcion(productoActualizado.getDescripcion());
-        producto.setPrecio(productoActualizado.getPrecio());
+        producto.setPrecioUsd(productoActualizado.getPrecioUsd());
         producto.setStockActual(productoActualizado.getStockActual());
         producto.setStockMinimo(productoActualizado.getStockMinimo());
         producto.setCodigoBarras(productoActualizado.getCodigoBarras());
         producto.setImagenUrl(productoActualizado.getImagenUrl());
         producto.setCategoria(productoActualizado.getCategoria());
         normalizarCodigoBarras(producto);
+        sincronizarPrecioArs(producto);
         return productoRepository.save(producto);
+    }
+
+    private void sincronizarPrecioArs(Producto producto) {
+        BigDecimal cotizacion = configuracionService.getCotizacionUsdArs();
+        if (producto.getPrecioUsd() != null && producto.getPrecioUsd().compareTo(BigDecimal.ZERO) > 0 && cotizacion != null) {
+            producto.setPrecio(producto.getPrecioUsd().multiply(cotizacion).setScale(2, RoundingMode.HALF_UP));
+        } else if (producto.getPrecio() == null) {
+            producto.setPrecio(BigDecimal.ZERO);
+        }
     }
 
     private void normalizarCodigoBarras(Producto producto) {

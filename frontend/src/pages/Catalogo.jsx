@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart, Phone, Package } from 'lucide-react';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
+import { useCurrency, MONEDAS, UMBRAL_DESCUENTO, PCT_DESCUENTO } from '../context/CurrencyContext';
 
 const Catalogo = () => {
   const [productos, setProductos] = useState([]);
@@ -10,6 +11,7 @@ const Catalogo = () => {
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [categorias, setCategorias] = useState([]);
   const { addItem, items } = useCart();
+  const { moneda, setMoneda, formatPrice, hayCotizacion } = useCurrency();
 
   useEffect(() => {
     fetchProductos();
@@ -46,9 +48,7 @@ const Catalogo = () => {
   const isInCart = (productId) => items.some(item => item.id === productId);
 
   const contactarWhatsApp = (producto) => {
-    const precio = producto.precio > 0
-      ? `$${producto.precio.toLocaleString('es-AR')}`
-      : `U$S ${producto.precioUsd || 'Consultar'}`;
+    const precio = formatPrice(producto.precioUsd ?? producto.precio);
     const mensaje = `Hola! Me interesa el producto: ${producto.nombre} - ${precio}`;
     window.open(`https://wa.me/5491112345678?text=${encodeURIComponent(mensaje)}`, '_blank');
   };
@@ -96,7 +96,36 @@ const Catalogo = () => {
             <option key={cat.id} value={cat.id}>{cat.nombre}</option>
           ))}
         </select>
+        {/* Toggle de moneda */}
+        <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg self-start">
+          <button
+            onClick={() => setMoneda(MONEDAS.USD)}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+              moneda === MONEDAS.USD
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            U$S Dólares
+          </button>
+          <button
+            onClick={() => setMoneda(MONEDAS.ARS)}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+              moneda === MONEDAS.ARS
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            $ Pesos
+          </button>
+        </div>
       </div>
+
+      {moneda === MONEDAS.ARS && !hayCotizacion && (
+        <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+          No hay cotización configurada. Los precios en pesos no están disponibles por el momento.
+        </p>
+      )}
 
       {/* Products Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -133,20 +162,13 @@ const Catalogo = () => {
             {/* Price and Stock */}
             <div className="mt-4">
               <div className="flex items-baseline gap-2">
-                {producto.precio > 0 && (
-                  <span className="text-2xl font-bold text-primary-800">
-                    ${producto.precio.toLocaleString('es-AR')}
-                  </span>
-                )}
-                {producto.precioUsd > 0 && (
-                  <span className="text-lg font-semibold text-green-700">
-                    U$S {producto.precioUsd}
-                  </span>
-                )}
-                {!producto.precio && !producto.precioUsd && (
-                  <span className="text-sm text-gray-500">Consultar precio</span>
-                )}
+                <span className="text-2xl font-bold text-primary-800">
+                  {formatPrice(producto.precioUsd ?? producto.precio)}
+                </span>
               </div>
+              <p className="text-xs text-green-700 font-medium mt-1">
+                +{UMBRAL_DESCUENTO} unidades: -{Math.round(PCT_DESCUENTO * 100)}% de descuento
+              </p>
               <p className={`text-xs mt-1 ${producto.stockActual > 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {producto.stockActual > 0 ? `Stock: ${producto.stockActual}` : 'Sin stock'}
               </p>

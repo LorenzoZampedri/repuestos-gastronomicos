@@ -133,7 +133,7 @@ const Productos = () => {
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Producto</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Código</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Categoría</th>
-                <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Precio</th>
+                <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Precio (USD)</th>
                 <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Stock</th>
                 <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Acciones</th>
               </tr>
@@ -166,8 +166,15 @@ const Productos = () => {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <span className="font-semibold text-gray-900">
-                      ${producto.precio?.toLocaleString('es-AR')}
+                      {producto.precioUsd > 0
+                        ? `U$S ${Number(producto.precioUsd).toLocaleString('es-AR')}`
+                        : <span className="text-sm text-gray-400 font-normal">Sin precio USD</span>}
                     </span>
+                    {producto.precioUsd > 0 && producto.precio > 0 && (
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        ${Number(producto.precio).toLocaleString('es-AR')}
+                      </p>
+                    )}
                   </td>
                   <td className="py-3 px-4 text-right">
                     <span className={`font-semibold ${

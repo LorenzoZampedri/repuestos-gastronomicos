@@ -10,6 +10,7 @@ const CuentasCorrientes = () => {
   const [busqueda, setBusqueda] = useState('');
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [ventas, setVentas] = useState([]);
+  const [pagos, setPagos] = useState([]);
   const [ajustandoSaldo, setAjustandoSaldo] = useState(null);
   const [montoAjuste, setMontoAjuste] = useState('');
 
@@ -39,9 +40,19 @@ const CuentasCorrientes = () => {
     }
   };
 
+  const fetchPagosCliente = async (clienteId) => {
+    try {
+      const response = await api.get(`/api/clientes/${clienteId}/pagos`);
+      setPagos(response.data);
+    } catch (error) {
+      toast.error('Error al cargar pagos');
+    }
+  };
+
   const handleSeleccionarCliente = (cliente) => {
     setClienteSeleccionado(cliente);
     fetchVentasCliente(cliente.id);
+    fetchPagosCliente(cliente.id);
   };
 
   const handleRegistrarPago = async (clienteId) => {
@@ -59,6 +70,7 @@ const CuentasCorrientes = () => {
       if (clienteSeleccionado?.id === clienteId) {
         const updated = clientesActualizados.find(c => c.id === clienteId);
         if (updated) setClienteSeleccionado(updated);
+        fetchPagosCliente(clienteId);
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Error al ajustar saldo');
@@ -268,6 +280,34 @@ const CuentasCorrientes = () => {
                 {ventas.length === 0 && (
                   <p className="text-center text-gray-500 py-4">
                     No hay ventas registradas
+                  </p>
+                )}
+              </div>
+
+              <h4 className="font-medium text-gray-700 mb-3 mt-6">Historial de pagos</h4>
+              <div className="space-y-3">
+                {pagos.map((pago) => (
+                  <div
+                    key={pago.id}
+                    className="flex items-center justify-between p-3 bg-green-50 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        Pago #{pago.id}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(pago.fecha).toLocaleDateString('es-AR')} · {pago.metodoPago}
+                        {pago.referencia ? ` · ${pago.referencia}` : ''}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-green-700">
+                      -${pago.monto?.toLocaleString('es-AR')}
+                    </p>
+                  </div>
+                ))}
+                {pagos.length === 0 && (
+                  <p className="text-center text-gray-500 py-4">
+                    No hay pagos registrados
                   </p>
                 )}
               </div>

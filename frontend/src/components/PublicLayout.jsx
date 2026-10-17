@@ -2,11 +2,22 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Phone, ShoppingCart, X, Trash2, MessageCircle, Plus, Minus } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useCurrency, PCT_DESCUENTO, UMBRAL_DESCUENTO } from '../context/CurrencyContext';
 
 const CartDrawer = ({ isOpen, onClose }) => {
-  const { items, removeItem, updateQuantity, clearCart, contactWhatsApp } = useCart();
+  const {
+    items, removeItem, updateQuantity, clearCart, contactWhatsApp,
+    tieneDescuento, precioUnitario, precioLista, subtotalItem, cartTotal
+  } = useCart();
+  const { moneda, hayCotizacion } = useCurrency();
 
   if (!isOpen) return null;
+
+  const fmt = (valor) => {
+    if (valor == null || valor <= 0) return 'Consultar';
+    const formateado = valor.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+    return moneda === 'USD' ? `U$S ${formateado}` : `$${formateado}`;
+  };
 
   return (
     <div className="fixed inset-0 z-50">
@@ -42,11 +53,20 @@ const CartDrawer = ({ isOpen, onClose }) => {
                     <h4 className="text-sm font-medium text-gray-900 truncate">{item.nombre}</h4>
                     <p className="text-sm text-gray-500">{item.categoria?.nombre}</p>
                     <p className="text-sm font-bold text-primary-800">
-                      {item.precio > 0
-                        ? `$${item.precio.toLocaleString('es-AR')}`
-                        : item.precioUsd
-                          ? `U$S ${item.precioUsd}`
-                          : 'Consultar'}
+                      {fmt(precioUnitario(item))} c/u
+                      {tieneDescuento(item) && (
+                        <span className="ml-1 text-xs font-normal text-gray-400 line-through">
+                          {fmt(precioLista(item))}
+                        </span>
+                      )}
+                    </p>
+                    {tieneDescuento(item) && (
+                      <p className="text-xs font-medium text-green-700">
+                        -{Math.round(PCT_DESCUENTO * 100)}% descuento por +{UMBRAL_DESCUENTO} unidades
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500">
+                      Subtotal: {fmt(subtotalItem(item))}
                     </p>
                   </div>
                   <div className="flex flex-col items-end justify-between">
@@ -80,6 +100,16 @@ const CartDrawer = ({ isOpen, onClose }) => {
 
         {items.length > 0 && (
           <div className="p-4 border-t space-y-3">
+            {moneda === 'ARS' && !hayCotizacion ? (
+              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                No hay cotización configurada para convertir a pesos.
+              </p>
+            ) : (
+              <div className="flex justify-between items-center text-lg font-bold">
+                <span className="text-gray-900">Total</span>
+                <span className="text-primary-800">{fmt(cartTotal)}</span>
+              </div>
+            )}
             <button
               onClick={clearCart}
               className="w-full text-sm text-gray-500 hover:text-gray-700"

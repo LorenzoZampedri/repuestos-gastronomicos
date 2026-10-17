@@ -13,7 +13,7 @@ const ProductoForm = () => {
     nombre: '',
     descripcion: '',
     codigoBarras: '',
-    precio: '',
+    precioUsd: '',
     stockActual: '',
     stockMinimo: '5',
     categoriaId: '',
@@ -48,7 +48,7 @@ const ProductoForm = () => {
         nombre: producto.nombre || '',
         descripcion: producto.descripcion || '',
         codigoBarras: producto.codigoBarras || '',
-        precio: producto.precio || '',
+        precioUsd: producto.precioUsd || '',
         stockActual: producto.stockActual || '',
         stockMinimo: producto.stockMinimo || '5',
         categoriaId: producto.categoria?.id || '',
@@ -75,7 +75,7 @@ const ProductoForm = () => {
       const payload = {
         ...formData,
         codigoBarras: formData.codigoBarras.trim() || null,
-        precio: parseFloat(formData.precio),
+        precioUsd: parseFloat(formData.precioUsd) || 0,
         stockActual: parseInt(formData.stockActual) || 0,
         stockMinimo: parseInt(formData.stockMinimo) || 5,
         categoria: formData.categoriaId ? { id: parseInt(formData.categoriaId) } : null
@@ -184,11 +184,11 @@ const ProductoForm = () => {
         {/* Precio y Stock */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="label">Precio (ARS) *</label>
+            <label className="label">Precio (USD) *</label>
             <input
               type="number"
-              name="precio"
-              value={formData.precio}
+              name="precioUsd"
+              value={formData.precioUsd}
               onChange={handleChange}
               className="input"
               placeholder="0"
@@ -196,6 +196,9 @@ const ProductoForm = () => {
               step="0.01"
               required
             />
+            <p className="text-xs text-gray-500 mt-1">
+              El precio en pesos se calcula automáticamente con la cotización configurada
+            </p>
           </div>
           <div>
             <label className="label">Stock actual *</label>

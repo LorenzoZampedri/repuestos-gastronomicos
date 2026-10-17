@@ -1,6 +1,7 @@
 package com.repuestos.controllers;
 
 import com.repuestos.models.Cliente;
+import com.repuestos.models.Pago;
 import com.repuestos.services.ClienteService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -55,12 +56,18 @@ public class ClienteController {
     
     @PatchMapping("/{id}/saldo")
     public ResponseEntity<Cliente> ajustarSaldo(@PathVariable Long id, @RequestBody AjustarSaldoRequest request) {
-        return ResponseEntity.ok(clienteService.ajustarSaldo(id, request.getMonto(), request.getTipo()));
+        return ResponseEntity.ok(clienteService.ajustarSaldo(id, request.getMonto(), request.getTipo(), request.getMetodoPago()));
+    }
+    
+    @GetMapping("/{id}/pagos")
+    public ResponseEntity<List<Pago>> pagosPorCliente(@PathVariable Long id) {
+        return ResponseEntity.ok(clienteService.pagosPorCliente(id));
     }
     
     @Data
     static class AjustarSaldoRequest {
         private BigDecimal monto;
         private String tipo; // "sumar" o "restar"
+        private String metodoPago; // opcional: EFECTIVO, TARJETA, TRANSFERENCIA, OTRO
     }
 }

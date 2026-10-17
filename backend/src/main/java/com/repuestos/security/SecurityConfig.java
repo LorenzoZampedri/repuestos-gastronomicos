@@ -39,6 +39,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/productos/catalogo").permitAll()
                 .requestMatchers("/api/categorias").permitAll()
+                .requestMatchers("/api/configuracion/publica").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 // Admin only

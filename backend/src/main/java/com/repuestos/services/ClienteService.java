@@ -1,9 +1,12 @@
 package com.repuestos.services;
 
 import com.repuestos.models.Cliente;
+import com.repuestos.models.Pago;
 import com.repuestos.repositories.ClienteRepository;
+import com.repuestos.repositories.PagoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -13,6 +16,7 @@ import java.util.List;
 public class ClienteService {
     
     private final ClienteRepository clienteRepository;
+    private final PagoRepository pagoRepository;
     
     public List<Cliente> listarTodos() {
         return clienteRepository.findByActivoTrue();
@@ -53,7 +57,8 @@ public class ClienteService {
         clienteRepository.save(cliente);
     }
     
-    public Cliente ajustarSaldo(Long id, BigDecimal monto, String tipo) {
+    @Transactional
+    public Cliente ajustarSaldo(Long id, BigDecimal monto, String tipo, String metodoPago) {
         Cliente cliente = buscarPorId(id);
         if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El monto debe ser mayor a cero");
@@ -70,9 +75,33 @@ public class ClienteService {
                 throw new IllegalArgumentException("El pago no puede superar la deuda pendiente");
             }
             cliente.setSaldoCorriente(saldoActual.subtract(monto));
+            clienteRepository.save(cliente);
+            pagoRepository.save(Pago.builder()
+                    .cliente(cliente)
+                    .monto(monto)
+                    .metodoPago(parseMetodoPago(metodoPago))
+                    .referencia("Pago de cuenta corriente")
+                    .build());
+            return cliente;
         } else {
             throw new IllegalArgumentException("Tipo de ajuste inválido");
         }
         return clienteRepository.save(cliente);
+    }
+
+    public List<Pago> pagosPorCliente(Long id) {
+        buscarPorId(id);
+        return pagoRepository.findPagosPorCliente(id);
+    }
+
+    private Pago.MetodoPago parseMetodoPago(String valor) {
+        if (valor == null || valor.isBlank()) {
+            return Pago.MetodoPago.EFECTIVO;
+        }
+        try {
+            return Pago.MetodoPago.valueOf(valor);
+        } catch (IllegalArgumentException e) {
+            return Pago.MetodoPago.EFECTIVO;
+        }
     }
 }

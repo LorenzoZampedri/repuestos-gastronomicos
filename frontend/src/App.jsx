@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { CurrencyProvider } from './context/CurrencyContext';
 
 // Layout
 import Layout from './components/Layout';
@@ -19,6 +20,7 @@ import Clientes from './pages/Clientes';
 import ClienteForm from './pages/ClienteForm';
 import CuentasCorrientes from './pages/CuentasCorrientes';
 import Catalogo from './pages/Catalogo';
+import Configuracion from './pages/Configuracion';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requiredRole }) => {
@@ -65,6 +67,7 @@ const PublicRoute = ({ children }) => {
 function App() {
   return (
     <AuthProvider>
+      <CurrencyProvider>
       <CartProvider>
         <Router>
         <Toaster 
@@ -137,6 +140,11 @@ function App() {
                 <CuentasCorrientes />
               </ProtectedRoute>
             } />
+            <Route path="configuracion" element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <Configuracion />
+              </ProtectedRoute>
+            } />
           </Route>
           
           {/* Catch all */}
@@ -144,6 +152,7 @@ function App() {
         </Routes>
         </Router>
       </CartProvider>
+      </CurrencyProvider>
     </AuthProvider>
   );
 }

@@ -4,6 +4,16 @@ import { Search, Plus, Minus, Trash2, ShoppingCart, ArrowLeft, CreditCard } from
 import toast from 'react-hot-toast';
 import api from '../services/api';
 
+const UMBRAL_DESCUENTO = 10;
+const PCT_DESCUENTO = 0.15;
+
+const precioUnitarioItem = (item) => {
+  const base = item.producto.precio || 0;
+  return item.cantidad > UMBRAL_DESCUENTO
+    ? base * (1 - PCT_DESCUENTO)
+    : base;
+};
+
 const VentaRapida = () => {
   const navigate = useNavigate();
   const [productos, setProductos] = useState([]);
@@ -93,8 +103,8 @@ const VentaRapida = () => {
     setCarrito(carrito.filter(item => item.producto.id !== productoId));
   };
 
-  const total = carrito.reduce((sum, item) => 
-    sum + (item.producto.precio * item.cantidad), 0
+  const total = carrito.reduce((sum, item) =>
+    sum + (precioUnitarioItem(item) * item.cantidad), 0
   );
 
     const handleCompra = async () => {
@@ -134,7 +144,7 @@ const VentaRapida = () => {
       const detalles = carrito.map(item => ({
         producto: { id: item.producto.id },
         cantidad: item.cantidad,
-        precioUnitario: item.producto.precio
+        precioUnitario: precioUnitarioItem(item)
       }));
 
       const payload = {
@@ -317,12 +327,25 @@ const VentaRapida = () => {
               <p className="text-sm">Selecciona un producto</p>
             </div>
           ) : (
-            carrito.map((item) => (
+            carrito.map((item) => {
+              const conDescuento = item.cantidad > UMBRAL_DESCUENTO;
+              const unitario = precioUnitarioItem(item);
+              return (
               <div key={item.producto.id} className="flex gap-3 bg-gray-50 rounded-lg p-3">
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 text-sm">{item.producto.nombre}</p>
                   <p className="text-sm text-gray-500">
-                    ${item.producto.precio?.toLocaleString('es-AR')} c/u
+                    ${unitario.toLocaleString('es-AR', { maximumFractionDigits: 2 })} c/u
+                    {conDescuento && (
+                      <>
+                        <span className="ml-1 text-xs text-gray-400 line-through">
+                          ${item.producto.precio?.toLocaleString('es-AR')}
+                        </span>
+                        <span className="ml-1 text-xs font-medium text-green-700">
+                          -{Math.round(PCT_DESCUENTO * 100)}%
+                        </span>
+                      </>
+                    )}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -342,7 +365,7 @@ const VentaRapida = () => {
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-gray-900">
-                    ${(item.producto.precio * item.cantidad).toLocaleString('es-AR')}
+                    ${(unitario * item.cantidad).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
                   </p>
                   <button
                     onClick={() => eliminarDelCarrito(item.producto.id)}
@@ -352,7 +375,8 @@ const VentaRapida = () => {
                   </button>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
 

@@ -101,6 +101,7 @@ CREATE TABLE detalle_venta (
 CREATE TABLE pagos (
     id SERIAL PRIMARY KEY,
     venta_id INTEGER REFERENCES ventas(id),
+    cliente_id INTEGER REFERENCES clientes(id),
     monto DECIMAL(10,2) NOT NULL,
     metodo_pago VARCHAR(20) CHECK (metodo_pago IN ('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'OTRO')),
     moneda VARCHAR(3) DEFAULT 'ARS' CHECK (moneda IN ('ARS', 'USD')),

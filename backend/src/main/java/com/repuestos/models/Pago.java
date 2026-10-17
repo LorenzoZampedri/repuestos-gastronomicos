@@ -21,9 +21,14 @@ public class Pago {
     private Long id;
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "venta_id", nullable = false)
+    @JoinColumn(name = "venta_id")
     @JsonIgnore
     private Venta venta;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Cliente cliente;
     
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal monto;

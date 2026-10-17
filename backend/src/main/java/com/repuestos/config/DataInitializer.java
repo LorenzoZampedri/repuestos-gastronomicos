@@ -4,6 +4,7 @@ import com.repuestos.models.Categoria;
 import com.repuestos.models.Usuario;
 import com.repuestos.repositories.CategoriaRepository;
 import com.repuestos.repositories.UsuarioRepository;
+import com.repuestos.services.ConfiguracionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,11 +17,13 @@ public class DataInitializer implements CommandLineRunner {
     private final UsuarioRepository usuarioRepository;
     private final CategoriaRepository categoriaRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ConfiguracionService configuracionService;
 
-    public DataInitializer(UsuarioRepository usuarioRepository, CategoriaRepository categoriaRepository, PasswordEncoder passwordEncoder) {
+    public DataInitializer(UsuarioRepository usuarioRepository, CategoriaRepository categoriaRepository, PasswordEncoder passwordEncoder, ConfiguracionService configuracionService) {
         this.usuarioRepository = usuarioRepository;
         this.categoriaRepository = categoriaRepository;
         this.passwordEncoder = passwordEncoder;
+        this.configuracionService = configuracionService;
     }
 
     @Override
@@ -66,6 +69,13 @@ public class DataInitializer implements CommandLineRunner {
             }
         } catch (Exception e) {
             log.error("Error al crear categorías: {}", e.getMessage());
+        }
+
+        try {
+            configuracionService.inicializarClaves();
+            configuracionService.migrarPreciosUsd();
+        } catch (Exception e) {
+            log.error("Error al inicializar configuración: {}", e.getMessage());
         }
     }
 }

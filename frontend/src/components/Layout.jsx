@@ -7,6 +7,7 @@ import {
   ShoppingCart, 
   Users, 
   CreditCard,
+  Settings,
   Menu,
   X,
   LogOut,
@@ -26,11 +27,12 @@ const Layout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Productos', href: '/productos', icon: Package },
-    { name: 'Ventas', href: '/ventas', icon: ShoppingCart },
+    { name: 'Ventas', href: '/ventas', icon: ShoppingCart, end: true },
     { name: 'Venta Rápida', href: '/ventas/nueva', icon: ShoppingCart },
     ...(isAdmin() ? [
       { name: 'Clientes', href: '/clientes', icon: Users },
       { name: 'Ctas. Corrientes', href: '/cuentas-corrientes', icon: CreditCard },
+      { name: 'Configuración', href: '/configuracion', icon: Settings },
     ] : []),
   ];
 
@@ -69,7 +71,7 @@ const Layout = () => {
               <NavLink
                 key={item.name}
                 to={item.href}
-                end={item.href === '/'}
+                end={item.href === '/' || item.end}
                 className={({ isActive }) => 
                   `sidebar-link ${isActive ? 'active' : ''}`
                 }

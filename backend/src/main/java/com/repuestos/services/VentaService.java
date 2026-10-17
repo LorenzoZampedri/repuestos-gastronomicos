@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -14,7 +15,10 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class VentaService {
-    
+
+    public static final int UMBRAL_DESCUENTO_CANTIDAD = 10;
+    public static final BigDecimal PCT_DESCUENTO = new BigDecimal("0.85");
+
     private final VentaRepository ventaRepository;
     private final DetalleVentaRepository detalleVentaRepository;
     private final PagoRepository pagoRepository;
@@ -40,12 +44,18 @@ public class VentaService {
     
     @Transactional
     public Venta crearVenta(Venta venta, List<DetalleVenta> detalles, Long clienteId) {
-        // Validar stock
+        // Validar stock y aplicar descuento por volumen (15% si cantidad > 10)
         for (DetalleVenta detalle : detalles) {
             Producto producto = productoService.buscarPorId(detalle.getProducto().getId());
             if (producto.getStockActual() < detalle.getCantidad()) {
                 throw new RuntimeException("Stock insuficiente para: " + producto.getNombre());
             }
+            BigDecimal precioUnitario = producto.getPrecio();
+            if (detalle.getCantidad() > UMBRAL_DESCUENTO_CANTIDAD) {
+                precioUnitario = precioUnitario.multiply(PCT_DESCUENTO).setScale(2, RoundingMode.HALF_UP);
+            }
+            detalle.setPrecioUnitario(precioUnitario);
+            detalle.setProducto(producto);
         }
         
         // Calcular total
@@ -92,6 +102,7 @@ public class VentaService {
     public Pago registrarPago(Long ventaId, Pago pago) {
         Venta venta = buscarPorId(ventaId);
         pago.setVenta(venta);
+        pago.setCliente(venta.getCliente());
         pago.setFecha(LocalDateTime.now());
         
         Pago pagoGuardado = pagoRepository.save(pago);

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { useCurrency, MONEDAS, PCT_DESCUENTO, UMBRAL_DESCUENTO } from './CurrencyContext';
 
 const CartContext = createContext();
 
@@ -12,6 +13,7 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
+  const { moneda, cotizacion, hayCotizacion, convertir } = useCurrency();
   const [items, setItems] = useState(() => {
     const saved = localStorage.getItem('cart');
     return saved ? JSON.parse(saved) : [];
@@ -59,18 +61,61 @@ export const CartProvider = ({ children }) => {
 
   const itemCount = items.length;
 
+  const tieneDescuento = (item) => item.cantidad > UMBRAL_DESCUENTO;
+
+  const precioUnitarioBase = (item) => {
+    const usd = item.precioUsd > 0 ? item.precioUsd : null;
+    if (usd == null) return null;
+    return tieneDescuento(item) ? usd * (1 - PCT_DESCUENTO) : usd;
+  };
+
+  const precioUnitario = (item) => convertir(precioUnitarioBase(item));
+  const precioLista = (item) => convertir(item.precioUsd > 0 ? item.precioUsd : null);
+
+  const subtotalItem = (item) => {
+    const unitario = precioUnitario(item);
+    return unitario == null ? null : unitario * item.cantidad;
+  };
+
+  const cartTotal = items.reduce((sum, item) => {
+    const subtotal = subtotalItem(item);
+    return subtotal == null ? sum : sum + subtotal;
+  }, 0);
+
+  const hayPreciosSinConfigurar = items.some(item =>
+    !(item.precioUsd > 0) || (moneda === MONEDAS.ARS && !hayCotizacion)
+  );
+
   const generateWhatsAppMessage = () => {
     if (items.length === 0) return '';
 
     let mensaje = 'Hola! Me interesan los siguientes productos:\n\n';
     items.forEach((item, index) => {
-      const precio = item.precio > 0
-        ? `$${item.precio.toLocaleString('es-AR')}`
-        : item.precioUsd
-          ? `U$S ${item.precioUsd}`
-          : 'Consultar precio';
-      mensaje += `${index + 1}. ${item.nombre} x${item.cantidad} - ${precio}\n`;
+      const usdLista = item.precioUsd > 0 ? item.precioUsd : null;
+      if (usdLista == null) {
+        mensaje += `${index + 1}. ${item.nombre} x${item.cantidad} - Consultar precio\n`;
+        return;
+      }
+      const usdUnitario = tieneDescuento(item) ? usdLista * (1 - PCT_DESCUENTO) : usdLista;
+      const monedaLabel = moneda === MONEDAS.USD ? 'U$S' : '$';
+      const fmt = (v) => {
+        const convertido = convertir(v);
+        return convertido == null ? '-' : convertido.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+      };
+      mensaje += `${index + 1}. ${item.nombre} x${item.cantidad} - ${monedaLabel} ${fmt(usdUnitario)} c/u`;
+      if (tieneDescuento(item)) {
+        mensaje += ` (precio lista ${monedaLabel} ${fmt(usdLista)}, -${Math.round(PCT_DESCUENTO * 100)}% por cantidad)`;
+      }
+      mensaje += '\n';
     });
+
+    if (moneda === MONEDAS.USD && hayCotizacion) {
+      mensaje += `\n(Referencia pesos: 1 U$S = $${Number(cotizacion).toLocaleString('es-AR')})\n`;
+    }
+    if (cartTotal > 0) {
+      const totalLabel = moneda === MONEDAS.USD ? 'U$S' : '$';
+      mensaje += `\nTotal aproximado: ${totalLabel} ${cartTotal.toLocaleString('es-AR', { maximumFractionDigits: 2 })}\n`;
+    }
     mensaje += '\n¿Podrían darme más información?';
 
     return mensaje;
@@ -94,7 +139,13 @@ export const CartProvider = ({ children }) => {
       clearCart,
       itemCount,
       contactWhatsApp,
-      generateWhatsAppMessage
+      generateWhatsAppMessage,
+      tieneDescuento,
+      precioUnitario,
+      precioLista,
+      subtotalItem,
+      cartTotal,
+      hayPreciosSinConfigurar
     }}>
       {children}
     </CartContext.Provider>
