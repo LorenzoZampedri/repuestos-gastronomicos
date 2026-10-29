@@ -36,15 +36,31 @@ cd repuestos-gastronomicos
 cp .env.example .env    # Linux/Mac
 copy .env.example .env  # Windows (CMD)
 
-# 3. Levantar con Docker
-docker-compose up -d
+# 3. Levantar con Docker (siempre con --build para reflejar los últimos cambios)
+docker compose up -d --build
 
-# 4. Abrir en navegador
+# 4. Verificar que los 3 servicios estén "Up" (la DB debe decir "healthy")
+docker compose ps
+
+# 5. Abrir en navegador
 # Frontend: http://localhost:3000
 # Backend: http://localhost:8080
 ```
 
 **Credenciales iniciales (se crean automáticamente):** admin / admin123
+
+> **⚠️ Solo una instancia a la vez:** los puertos 3000/8080/5432 son fijos y los
+> contenedores comparten nombres. Si ya tenés otra copia del proyecto levantada
+> (carpeta vieja o versión anterior), parala antes de levantar una nueva:
+>
+> ```bash
+> cd /ruta/a/la/carpeta/vieja && docker compose down
+> # o, si no sabés de dónde salieron:
+> docker ps -a | grep repuestos
+> docker rm -f repuestos_db repuestos_backend repuestos_frontend
+> ```
+>
+> Detalles y más errores: [Guía Docker - Solución de Problemas](README_DOCKER.md#-solución-de-problemas).
 
 ## 📁 Estructura del Proyecto
 

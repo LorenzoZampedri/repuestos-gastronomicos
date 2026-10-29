@@ -52,16 +52,26 @@ cd repuestos-gastronomicos
 cp .env.example .env    # Linux/Mac
 copy .env.example .env  # Windows (CMD)
 
-# 3. Levantar todo
-docker-compose up -d
+# 3. Levantar todo (siempre con --build para reflejar los últimos cambios)
+docker compose up -d --build
 
-# 4. Verificar que funcione
-docker-compose ps
+# 4. Verificar que funcione: los 3 servicios "Up" y la DB "healthy"
+docker compose ps
 
-# 5. Abrir en navegador
+# 5. Probar frontend y proxy de la API
+curl -I http://localhost:3000                  # HTTP/1.1 200 OK
+curl http://localhost:3000/api/productos/catalogo   # 200 + JSON = proxy OK
+
+# 6. Abrir en navegador
 # Frontend: http://localhost:3000
 # Backend API: http://localhost:8080
 ```
+
+> **⚠️ Solo una instancia a la vez:** los puertos 3000/8080/5432 son fijos.
+> Si ya tenés otra copia del proyecto levantada (carpeta vieja o versión
+> anterior), parala primero con `docker compose down` en esa carpeta; si no,
+> el levantamiento falla con *"container name ... is already in use"* o
+> *"port is already allocated"*. Ver [Solución de Problemas](#-solución-de-problemas).
 
 ### Si NO podés usar Docker Desktop (Opción B - WSL2)
 
@@ -111,7 +121,7 @@ newgrp docker
 docker --version
 # Debería mostrar: Docker version 24.x.x o similar
 
-docker-compose --version
+docker compose version
 # Debería mostrar: Docker Compose version v2.x.x
 ```
 
@@ -134,31 +144,35 @@ cp .env.example .env    # Linux/Mac/WSL2
 copy .env.example .env  # Windows (CMD)
 
 # Levantar servicios
-docker-compose up -d
+docker compose up -d --build
 
 # Ver logs en tiempo real
-docker-compose logs -f
+docker compose logs -f
 
 # Verificar contenedores
-docker-compose ps
+docker compose ps
 ```
 
 ---
 
 ## 🎯 Primeros Pasos después de Levantar
 
-Una vez que `docker-compose ps` muestre todos los servicios corriendo:
+Una vez que `docker compose ps` muestre todos los servicios corriendo:
 
 ### 1. Verificar que todo funciona
 
 ```bash
-# Verificar backend
-curl http://localhost:8080/actuator/health
-# Debería mostrar: {"status":"UP"}
+# Verificar backend (endpoint público, no requiere token)
+curl http://localhost:8080/api/configuracion/publica
+# Debería mostrar JSON con la configuración pública
 
 # Verificar frontend
 curl -I http://localhost:3000
 # Debería mostrar: HTTP/1.1 200 OK
+
+# Verificar que el proxy /api del frontend llega al backend
+curl http://localhost:3000/api/productos/catalogo
+# Debería mostrar JSON con productos
 ```
 
 ### 2. Crear usuario administrador
@@ -193,7 +207,7 @@ ls scripts/
 python scripts/importar_excel.py
 
 # Verificar en la base de datos
-docker-compose exec postgres psql -U admin -d repuestos_db -c "SELECT COUNT(*) FROM productos;"
+docker compose exec postgres psql -U admin -d repuestos_db -c "SELECT COUNT(*) FROM productos;"
 ```
 
 ### 4. Probar el sistema
@@ -226,13 +240,13 @@ http://TU_IP:3000
 # ═══════════════════════════════════════════════════════════
 
 # Levantar todo en background
-docker-compose up -d
+docker compose up -d
 
 # Parar todos los contenedores
-docker-compose down
+docker compose down
 
 # Parar y eliminar volúmenes (BORRA la base de datos)
-docker-compose down -v
+docker compose down -v
 
 
 # ═══════════════════════════════════════════════════════════
@@ -240,10 +254,10 @@ docker-compose down -v
 # ═══════════════════════════════════════════════════════════
 
 # Ver contenedores corriendo
-docker-compose ps
+docker compose ps
 
 # Ver todos los contenedores (incluyendo parados)
-docker-compose ps -a
+docker compose ps -a
 
 # Ver uso de recursos
 docker stats
@@ -254,15 +268,15 @@ docker stats
 # ═══════════════════════════════════════════════════════════
 
 # Ver logs en tiempo real
-docker-compose logs -f
+docker compose logs -f
 
 # Logs de un servicio específico
-docker-compose logs -f backend
-docker-compose logs -f frontend
-docker-compose logs -f postgres
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose logs -f postgres
 
 # Últimas 100 líneas de logs
-docker-compose logs --tail=100 backend
+docker compose logs --tail=100 backend
 
 
 # ═══════════════════════════════════════════════════════════
@@ -270,12 +284,12 @@ docker-compose logs --tail=100 backend
 # ═══════════════════════════════════════════════════════════
 
 # Reiniciar todo
-docker-compose restart
+docker compose restart
 
 # Reiniciar un servicio específico
-docker-compose restart backend
-docker-compose restart frontend
-docker-compose restart postgres
+docker compose restart backend
+docker compose restart frontend
+docker compose restart postgres
 ```
 
 ### Desarrollo
@@ -286,27 +300,27 @@ docker-compose restart postgres
 # ═══════════════════════════════════════════════════════════
 
 # Reconstruir solo backend
-docker-compose up -d --build backend
+docker compose up -d --build backend
 
 # Reconstruir solo frontend
-docker-compose up -d --build frontend
+docker compose up -d --build frontend
 
 # Reconstruir todo
-docker-compose up -d --build
+docker compose up -d --build
 
 
 # ═══════════════════════════════════════════════════════════
 # ACCEDER A CONTENEDORES (para debug)
 # ═══════════════════════════════════════════════════════════
 
-# Entrar al backend (bash)
-docker-compose exec backend bash
+# Entrar al backend (shell - la imagen alpine no trae bash)
+docker compose exec backend sh
 
 # Entrar a PostgreSQL
-docker-compose exec postgres psql -U admin -d repuestos_db
+docker compose exec postgres psql -U admin -d repuestos_db
 
 # Entrar al frontend
-docker-compose exec frontend sh
+docker compose exec frontend sh
 
 
 # ═══════════════════════════════════════════════════════════
@@ -314,19 +328,19 @@ docker-compose exec frontend sh
 # ═══════════════════════════════════════════════════════════
 
 # Ver tablas
-docker-compose exec postgres psql -U admin -d repuestos_db -c "\dt"
+docker compose exec postgres psql -U admin -d repuestos_db -c "\dt"
 
 # Contar productos
-docker-compose exec postgres psql -U admin -d repuestos_db -c "SELECT COUNT(*) FROM productos;"
+docker compose exec postgres psql -U admin -d repuestos_db -c "SELECT COUNT(*) FROM productos;"
 
 # Ver productos
-docker-compose exec postgres psql -U admin -d repuestos_db -c "SELECT * FROM productos LIMIT 10;"
+docker compose exec postgres psql -U admin -d repuestos_db -c "SELECT * FROM productos LIMIT 10;"
 
 # Backup de la base de datos
-docker-compose exec postgres pg_dump -U admin repuestos_db > backup.sql
+docker compose exec postgres pg_dump -U admin repuestos_db > backup.sql
 
 # Restaurar backup
-cat backup.sql | docker-compose exec -T postgres psql -U admin -d repuestos_db
+cat backup.sql | docker compose exec -T postgres psql -U admin -d repuestos_db
 ```
 
 ---
@@ -427,18 +441,76 @@ python scripts/importar_excel.py
 
 ```bash
 # Ver todos los productos
-docker-compose exec postgres psql -U admin -d repuestos_db -c "SELECT * FROM productos;"
+docker compose exec postgres psql -U admin -d repuestos_db -c "SELECT * FROM productos;"
 
 # Contar productos
-docker-compose exec postgres psql -U admin -d repuestos_db -c "SELECT COUNT(*) FROM productos;"
+docker compose exec postgres psql -U admin -d repuestos_db -c "SELECT COUNT(*) FROM productos;"
 
 # Buscar un producto específico
-docker-compose exec postgres psql -U admin -d repuestos_db -c "SELECT * FROM productos WHERE nombre ILIKE '%quemador%';"
+docker compose exec postgres psql -U admin -d repuestos_db -c "SELECT * FROM productos WHERE nombre ILIKE '%quemador%';"
 ```
 
 ---
 
 ## 🐛 Solución de Problemas
+
+### ❌ "The container name ... is already in use" / "port is already allocated"
+
+**Síntoma:** `docker compose up -d --build` revienta al crear los contenedores y
+nunca llega a abrir la app. Pasa al clonar el repo en una carpeta nueva teniendo
+la versión anterior (u otra copia del proyecto) en la máquina.
+
+```bash
+# 1. Ver quién ocupó los contenedores/puertos
+docker ps -a
+# Viejos: repuestos_db / repuestos_backend / repuestos_frontend
+# Nuevos: repuestos-gastronomicos-postgres-1 / -backend-1 / -frontend-1
+
+# 2a. Si salen de otra carpeta del proyecto: parala desde esa carpeta
+cd /ruta/a/la/carpeta/vieja && docker compose down
+
+# 2b. Si no sabés de dónde salieron: eliminarlos a mano
+#     (NO toca la base de datos, esa vive en el volumen pgdata)
+docker rm -f repuestos_db repuestos_backend repuestos_frontend
+
+# 3. Volver a levantar
+docker compose up -d --build
+```
+
+**Causa raíz:** los puertos 3000/8080/5432 son fijos y las versiones viejas del
+`docker-compose.yml` les asignaban nombres fijos a los contenedores: dos copias
+del proyecto (o dos versiones) no pueden correr al mismo tiempo.
+
+---
+
+### ❌ El backend no levanta / error en `db/init.sql` (primera ejecución)
+
+**Síntoma:** el contenedor de la DB aparece `restarting` o `exited (1)`, y el
+frontend carga pero la API falla.
+
+```bash
+# 1. Ver el error real de la base
+docker compose logs postgres
+
+# 2. Comprobar que los scripts SQL existen. Si falta alguno, Docker monta un
+#    directorio vacío en su lugar y psql falla con:
+#    "could not read from input file: Is a directory"
+ls db/init.sql db/seed.sql
+
+# 3. Volver a levantar
+docker compose up -d --build
+
+# 4. Si la base quedó inicializada a medias en el primer intento fallido:
+#    ⚠️ ESTO BORRA LOS DATOS de esa instancia
+docker compose down -v
+docker compose up -d --build
+```
+
+**Nota:** `init.sql` y `seed.sql` **solo** se ejecutan con volumen nuevo (primera
+ejecución). Si el volumen `pgdata` ya existe, no corren nunca: las tablas nuevas
+las crea Hibernate (`spring.jpa.hibernate.ddl-auto=update`).
+
+---
 
 ### ❌ "Cannot connect to the Docker daemon"
 
@@ -484,6 +556,10 @@ kill -9 <PID>           # Linux/Mac
 FRONTEND_PORT=3001  # Cambiar de 3000 a 3001
 ```
 
+**Si el conflicto es entre dos copias/versiones del proyecto** (también aparece
+como *"The container name ... is already in use"*), ver el primer punto de
+[Solución de Problemas](#-solución-de-problemas).
+
 ---
 
 ### ❌ "Permission denied" (WSL2)
@@ -498,7 +574,7 @@ groups $USER
 # Debería mostrar "docker" en la lista
 
 # Si sigue sin funcionar, usar sudo (no recomendado)
-sudo docker-compose up -d
+sudo docker compose up -d
 ```
 
 ---
@@ -507,56 +583,69 @@ sudo docker-compose up -d
 
 ```bash
 # 1. Verificar que PostgreSQL está corriendo
-docker-compose ps postgres
+docker compose ps postgres
 # Debería mostrar "Up" y "healthy"
 
 # 2. Ver logs de PostgreSQL
-docker-compose logs postgres
+docker compose logs postgres
 # Buscar errores como "FATAL" o "password authentication failed"
 
 # 3. Esperar 10 segundos y reintentar
 # PostgreSQL tarda en iniciar completamente
 
 # 4. Verificar contraseña
-docker-compose exec postgres psql -U admin -d repuestos_db -c "\q"
+docker compose exec postgres psql -U admin -d repuestos_db -c "\q"
 # Si pide contraseña, usar: repuestos123
 ```
 
 ---
 
-### ❌ Frontend no carga / errores CORS
+### ❌ Frontend no carga / la API falla desde el navegador
+
+El frontend llama a la API con rutas relativas (`/api/...`) y **Nginx hace de
+proxy** hacia el backend en el mismo puerto (3000): no hay CORS de por medio.
 
 ```bash
-# 1. Verificar que el backend está corriendo
-docker-compose ps backend
-# Debería mostrar "Up"
+# 1. Verificar que los servicios estén Up
+docker compose ps
 
-# 2. Verificar CORS en el código
-cat backend/src/main/java/com/repuestos/config/SecurityConfig.java
-# Debería tener configuración de CORS permitiendo localhost:3000
+# 2. Probar la API a través del proxy (puerto 3000)
+curl http://localhost:3000/api/productos/catalogo
+# 200 + JSON  => proxy OK
+# 502 / 404  => el backend no está corriendo o aún no está listo (esperar ~30 s)
 
-# 3. Ver logs del backend
-docker-compose logs backend | grep -i "cors\|error"
+# 3. Probar el backend directamente (puerto 8080)
+curl http://localhost:8080/api/productos/catalogo
 
-# 4. Probar el backend directamente
-curl http://localhost:8080/api/productos
+# 4. Logs del backend buscando errores
+docker compose logs backend --tail=100
 ```
+
+**Si falla solo en el navegador** (consola: `Failed to fetch`, `CORS`):
+
+- Entrá por `http://localhost:3000`; desde otro dispositivo: `http://TU_IP:3000`.
+- `127.0.0.1:3000` y `localhost:3000` son orígenes distintos para el navegador:
+  usá siempre `localhost`.
+- El CORS está en `backend/src/main/java/com/repuestos/security/SecurityConfig.java`
+  y permite cualquier origen (`setAllowedOriginPatterns(Arrays.asList("*"))`);
+  si lo modificaste, volvé a ese valor.
 
 ---
 
 ### ❌ "Module not found" o errores de dependencias
 
 ```bash
-# Backend (Java/Spring)
-docker-compose exec backend ./mvnw clean install
+# Los contenedores de runtime NO traen mvnw ni npm (la imagen solo ejecuta la
+# app ya compilada dentro del build), así que la solución es reconstruir:
 
-# Frontend (React)
-docker-compose exec frontend npm install
-docker-compose exec frontend npm run build
+# Solo backend
+docker compose up -d --build backend
 
-# Reconstruir contenedor
-docker-compose up -d --build backend
-docker-compose up -d --build frontend
+# Solo frontend
+docker compose up -d --build frontend
+
+# Todo junto
+docker compose up -d --build
 ```
 
 ---
@@ -564,16 +653,17 @@ docker-compose up -d --build frontend
 ### ❌ Cambios no se reflejan
 
 ```bash
-# Si estás editando código y no se actualiza:
+# En Docker no hay hot-reload: el código se compila DURANTE el build de la imagen.
 
-# Para backend: El volumen está montado, pero Maven puede cachear
-docker-compose exec backend ./mvnw clean spring-boot:run
+# 1. Traer cambios
+git pull origin main
 
-# Para frontend: React tiene hot-reload, pero verificar
-docker-compose logs frontend | grep "Compiled"
+# 2. Reconstruir e reiniciar
+docker compose up -d --build
 
-# Si nada funciona, reconstruir
-docker-compose up -d --build
+# 3. Verificar
+docker compose ps
+docker compose logs backend --tail=50
 ```
 
 ---
@@ -603,13 +693,13 @@ docker system prune -a --volumes
 # ⚠️ ESTO BORRA TODOS LOS DATOS
 
 # 1. Parar todo
-docker-compose down
+docker compose down
 
-# 2. Eliminar volúmenes
-docker volume rm repuestos-gastronomicos_pgdata
+# 2. Eliminar el volumen de la base (el nombre depende del de la carpeta)
+docker compose down -v        # o: docker volume rm <nombre_proyecto>_pgdata
 
 # 3. Levantar de nuevo
-docker-compose up -d
+docker compose up -d
 
 # 4. Reimportar Excel
 python scripts/importar_excel.py
@@ -626,10 +716,10 @@ python scripts/importar_excel.py
 git pull origin main
 
 # Si hay cambios en Dockerfile o docker-compose.yml
-docker-compose up -d --build
+docker compose up -d --build
 
-# Si solo hay cambios en código (sin Dockerfile)
-docker-compose restart backend  # O frontend
+# Si solo hay cambios en código: hay que recompilar la imagen (restart no alcanza)
+docker compose up -d --build backend   # O frontend
 ```
 
 ### 🔐 Variables de Entorno
@@ -663,22 +753,36 @@ http://TU_IP:3000
 
 ### 🔄 Hot Reload
 
-**Backend (Spring Boot):**
-- Los cambios se detectan automáticamente
-- Si no funciona: `docker-compose restart backend`
+**En Docker no hay hot-reload:** las imágenes copian el código durante el build y
+ejecutan el artefacto ya compilado. Después de editar cualquier archivo hay que
+reconstruir:
 
-**Frontend (React):**
-- Hot reload está habilitado por defecto
-- Los cambios se reflejan al guardar el archivo
+```bash
+git pull origin main
+docker compose up -d --build
+```
+
+**Para desarrollo con hot-reload real**, corré ese servicio en local:
+
+```bash
+# Frontend (Vite, queda en http://localhost:5173 y proxya /api a :8080)
+cd frontend
+npm install
+npm run dev -- --port 5173
+
+# Backend (Spring Boot, usa la DB de Docker publicada en localhost:5432)
+cd backend
+./mvnw spring-boot:run
+```
 
 ### 🗃️ Backup de la Base de Datos
 
 ```bash
 # Crear backup
-docker-compose exec postgres pg_dump -U admin repuestos_db > backup_$(date +%Y%m%d).sql
+docker compose exec postgres pg_dump -U admin repuestos_db > backup_$(date +%Y%m%d).sql
 
 # Restaurar backup
-cat backup_20240115.sql | docker-compose exec -T postgres psql -U admin -d repuestos_db
+cat backup_20240115.sql | docker compose exec -T postgres psql -U admin -d repuestos_db
 ```
 
 ---
@@ -688,15 +792,15 @@ cat backup_20240115.sql | docker-compose exec -T postgres psql -U admin -d repue
 Si tenés problemas:
 
 1. **Revisar esta guía** - La mayoría de los problemas están documentados
-2. **Ver logs** - `docker-compose logs -f` muestra qué está pasando
-3. **Preguntar en el canal** - Compartí el output de `docker-compose logs`
-4. **Reiniciar** - Muchas veces `docker-compose down && docker-compose up -d` soluciona
+2. **Ver logs** - `docker compose logs -f` muestra qué está pasando
+3. **Preguntar en el canal** - Compartí el output de `docker compose logs`
+4. **Reiniciar** - Muchas veces `docker compose down && docker compose up -d` soluciona
 
 ### Comando mágico para debugging
 
 ```bash
 # Ver todo: estado, logs, y errores
-echo "=== CONTENEDORES ===" && docker-compose ps && echo -e "\n=== LOGS ===" && docker-compose logs --tail=50
+echo "=== CONTENEDORES ===" && docker compose ps && echo -e "\n=== LOGS ===" && docker compose logs --tail=50
 ```
 
 ---

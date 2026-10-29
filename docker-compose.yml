@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: repuestos_db
     environment:
       POSTGRES_DB: repuestos_db
       POSTGRES_USER: admin
@@ -25,7 +24,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: repuestos_backend
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     environment:
@@ -44,7 +42,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: repuestos_frontend
     environment:
       BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
     ports:
