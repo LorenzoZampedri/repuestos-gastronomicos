@@ -135,6 +135,20 @@ CREATE TABLE configuracion (
 );
 
 -- ═══════════════════════════════════════════════════════════
+-- TABLA: configuracion_historial (cambios de cotización/divisa)
+-- ═══════════════════════════════════════════════════════════
+CREATE TABLE configuracion_historial (
+    id SERIAL PRIMARY KEY,
+    clave VARCHAR(100) NOT NULL,
+    valor_anterior TEXT,
+    valor_nuevo TEXT NOT NULL,
+    usuario VARCHAR(100),
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_configuracion_historial_clave ON configuracion_historial (clave);
+
+-- ═══════════════════════════════════════════════════════════
 -- DATOS INICIALES
 -- ═══════════════════════════════════════════════════════════
 

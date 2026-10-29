@@ -1,6 +1,7 @@
 package com.repuestos.controllers;
 
 import com.repuestos.models.Configuracion;
+import com.repuestos.models.ConfiguracionHistorial;
 import com.repuestos.services.ConfiguracionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +35,12 @@ public class ConfiguracionController {
             return ResponseEntity.badRequest().build();
         }
         return ResponseEntity.ok(configuracionService.guardarOActualizar(clave, valor.trim(), body.get("descripcion")));
+    }
+
+    @GetMapping("/historial")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ConfiguracionHistorial>> historial(@RequestParam String clave) {
+        return ResponseEntity.ok(configuracionService.listarHistorial(clave));
     }
 
     @GetMapping("/publica")

@@ -1,11 +1,14 @@
 package com.repuestos.services;
 
 import com.repuestos.models.Configuracion;
+import com.repuestos.models.ConfiguracionHistorial;
 import com.repuestos.models.Producto;
+import com.repuestos.repositories.ConfiguracionHistorialRepository;
 import com.repuestos.repositories.ConfiguracionRepository;
 import com.repuestos.repositories.ProductoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +26,7 @@ public class ConfiguracionService {
     public static final String COTIZACION_INICIAL = "1000";
 
     private final ConfiguracionRepository configuracionRepository;
+    private final ConfiguracionHistorialRepository configuracionHistorialRepository;
     private final ProductoRepository productoRepository;
 
     public List<Configuracion> listarTodas() {
@@ -52,11 +56,36 @@ public class ConfiguracionService {
     public Configuracion guardarOActualizar(String clave, String valor, String descripcion) {
         Configuracion configuracion = configuracionRepository.findByClave(clave)
                 .orElseGet(() -> Configuracion.builder().clave(clave).build());
+        String valorAnterior = configuracion.getValor();
         configuracion.setValor(valor);
         if (descripcion != null && !descripcion.isBlank()) {
             configuracion.setDescripcion(descripcion);
         }
-        return configuracionRepository.save(configuracion);
+        Configuracion guardada = configuracionRepository.save(configuracion);
+        if (valorAnterior != null && !valorAnterior.equals(valor)) {
+            registrarHistorial(clave, valorAnterior, valor);
+        }
+        return guardada;
+    }
+
+    public List<ConfiguracionHistorial> listarHistorial(String clave) {
+        return configuracionHistorialRepository.findByClaveOrderByFechaDesc(clave);
+    }
+
+    private void registrarHistorial(String clave, String valorAnterior, String valorNuevo) {
+        try {
+            String username = SecurityContextHolder.getContext().getAuthentication() != null
+                    ? SecurityContextHolder.getContext().getAuthentication().getName()
+                    : null;
+            configuracionHistorialRepository.save(ConfiguracionHistorial.builder()
+                    .clave(clave)
+                    .valorAnterior(valorAnterior)
+                    .valorNuevo(valorNuevo)
+                    .usuario(username)
+                    .build());
+        } catch (Exception e) {
+            log.warn("No se pudo registrar el historial de la clave {}: {}", clave, e.getMessage());
+        }
     }
 
     public void inicializarClaves() {

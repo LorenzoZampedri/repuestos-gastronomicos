@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Plus, Eye, Calendar, Filter, Trash2 } from 'lucide-react';
+import { Search, Plus, Eye, Calendar, Filter, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+
+const POR_PAGINA = 10;
 
 const Ventas = () => {
   const [ventas, setVentas] = useState([]);
@@ -11,6 +13,7 @@ const Ventas = () => {
   const [fechaFin, setFechaFin] = useState('');
   const [filtroActivo, setFiltroActivo] = useState('mes');
   const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
+  const [pagina, setPagina] = useState(1);
 
   useEffect(() => {
     aplicarFiltro('mes');
@@ -19,6 +22,17 @@ const Ventas = () => {
   useEffect(() => {
     if (fechaInicio && fechaFin) fetchVentas();
   }, [fechaInicio, fechaFin]);
+
+  useEffect(() => {
+    if (loading) return;
+    const match = window.location.hash.match(/^#venta-(\d+)$/);
+    if (!match) return;
+    const el = document.getElementById(`venta-${match[1]}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, [loading, pagina]);
 
   const hoy = () => new Date().toISOString().split('T')[0];
 
@@ -39,6 +53,7 @@ const Ventas = () => {
 
   const aplicarFiltro = (tipo) => {
     setFiltroActivo(tipo);
+    setPagina(1);
     const fin = hoy();
     let inicio;
     switch (tipo) {
@@ -60,6 +75,11 @@ const Ventas = () => {
       const fin = `${fechaFin}T23:59:59`;
       const response = await api.get(`/api/ventas?inicio=${inicio}&fin=${fin}`);
       setVentas(response.data);
+      const match = window.location.hash.match(/^#venta-(\d+)$/);
+      if (match) {
+        const idx = response.data.findIndex((v) => String(v.id) === match[1]);
+        if (idx >= 0) setPagina(Math.floor(idx / POR_PAGINA) + 1);
+      }
     } catch (error) {
       toast.error('Error al cargar ventas');
     } finally {
@@ -82,6 +102,25 @@ const Ventas = () => {
   };
 
   const totalVentas = ventas.reduce((sum, v) => sum + (v.total || 0), 0);
+
+  const totalPaginas = Math.max(1, Math.ceil(ventas.length / POR_PAGINA));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const inicioSlice = (paginaActual - 1) * POR_PAGINA;
+  const ventasPagina = ventas.slice(inicioSlice, inicioSlice + POR_PAGINA);
+  const desdeMostrar = ventas.length === 0 ? 0 : inicioSlice + 1;
+  const hastaMostrar = inicioSlice + ventasPagina.length;
+
+  const paginasVisibles = () => {
+    const pages = [];
+    for (let p = 1; p <= totalPaginas; p++) {
+      if (p === 1 || p === totalPaginas || Math.abs(p - paginaActual) <= 1) {
+        pages.push(p);
+      } else if (pages[pages.length - 1] !== '...') {
+        pages.push('...');
+      }
+    }
+    return pages;
+  };
 
   const anularVenta = async (id) => {
     if (!confirm('¿Anular esta venta? Se devolverá el stock.')) return;
@@ -136,11 +175,11 @@ const Ventas = () => {
           <div className="flex flex-col sm:flex-row gap-4 items-end">
             <div className="flex-1">
               <label className="label">Fecha inicio</label>
-              <input type="date" value={fechaInicio} onChange={(e) => { setFechaInicio(e.target.value); setFiltroActivo(''); }} className="input" />
+              <input type="date" value={fechaInicio} onChange={(e) => { setFechaInicio(e.target.value); setFiltroActivo(''); setPagina(1); }} className="input" />
             </div>
             <div className="flex-1">
               <label className="label">Fecha fin</label>
-              <input type="date" value={fechaFin} onChange={(e) => { setFechaFin(e.target.value); setFiltroActivo(''); }} className="input" />
+              <input type="date" value={fechaFin} onChange={(e) => { setFechaFin(e.target.value); setFiltroActivo(''); setPagina(1); }} className="input" />
             </div>
           </div>
           <div className="text-right">
@@ -159,6 +198,7 @@ const Ventas = () => {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-800"></div>
           </div>
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -173,7 +213,7 @@ const Ventas = () => {
                 </tr>
               </thead>
               <tbody>
-                {ventas.map((venta) => (
+                {ventasPagina.map((venta) => (
                    <tr key={venta.id} id={`venta-${venta.id}`} className="border-b border-gray-100 hover:bg-gray-50">
                      <td className="py-3 px-4 text-sm font-mono text-gray-600">
                        #{venta.id}
@@ -233,6 +273,51 @@ const Ventas = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Paginación */}
+          {ventas.length > POR_PAGINA && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100">
+              <p className="text-sm text-gray-500">
+                Mostrando {desdeMostrar}–{hastaMostrar} de {ventas.length} ventas
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPagina(paginaActual - 1)}
+                  disabled={paginaActual === 1}
+                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  title="Página anterior"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {paginasVisibles().map((p, idx) =>
+                  p === '...' ? (
+                    <span key={`gap-${idx}`} className="px-1 text-sm text-gray-400">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPagina(p)}
+                      className={`min-w-[32px] h-8 px-2 rounded-lg text-sm font-medium transition-colors ${
+                        p === paginaActual
+                          ? 'bg-primary-800 text-white'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() => setPagina(paginaActual + 1)}
+                  disabled={paginaActual === totalPaginas}
+                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  title="Página siguiente"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
 
