@@ -17,6 +17,7 @@ public class ClienteService {
     
     private final ClienteRepository clienteRepository;
     private final PagoRepository pagoRepository;
+    private final VentaService ventaService;
     
     public List<Cliente> listarTodos() {
         return clienteRepository.findByActivoTrue();
@@ -70,38 +71,19 @@ public class ClienteService {
 
         if ("sumar".equals(tipo)) {
             cliente.setSaldoCorriente(saldoActual.add(monto));
+            return clienteRepository.save(cliente);
         } else if ("restar".equals(tipo)) {
-            if (monto.compareTo(saldoActual) > 0) {
-                throw new IllegalArgumentException("El pago no puede superar la deuda pendiente");
-            }
-            cliente.setSaldoCorriente(saldoActual.subtract(monto));
-            clienteRepository.save(cliente);
-            pagoRepository.save(Pago.builder()
-                    .cliente(cliente)
-                    .monto(monto)
-                    .metodoPago(parseMetodoPago(metodoPago))
-                    .referencia("Pago de cuenta corriente")
-                    .build());
-            return cliente;
+            // El pago se aplica a las ventas abiertas del cliente (más antiguas primero)
+            // y descuenta el saldoCorriente exactamente una vez.
+            ventaService.registrarPagoCuentaCorriente(id, monto, metodoPago);
+            return buscarPorId(id);
         } else {
             throw new IllegalArgumentException("Tipo de ajuste inválido");
         }
-        return clienteRepository.save(cliente);
     }
 
     public List<Pago> pagosPorCliente(Long id) {
         buscarPorId(id);
         return pagoRepository.findPagosPorCliente(id);
-    }
-
-    private Pago.MetodoPago parseMetodoPago(String valor) {
-        if (valor == null || valor.isBlank()) {
-            return Pago.MetodoPago.EFECTIVO;
-        }
-        try {
-            return Pago.MetodoPago.valueOf(valor);
-        } catch (IllegalArgumentException e) {
-            return Pago.MetodoPago.EFECTIVO;
-        }
     }
 }

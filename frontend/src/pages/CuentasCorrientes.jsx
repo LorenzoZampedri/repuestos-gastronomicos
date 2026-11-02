@@ -3,6 +3,13 @@ import { Search, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 
+const ESTADO_VENTA_STYLE = {
+  PENDIENTE: 'bg-yellow-100 text-yellow-800',
+  PARCIAL: 'bg-orange-100 text-orange-800',
+  PAGADA: 'bg-green-100 text-green-800',
+  ANULADA: 'bg-gray-100 text-gray-800'
+};
+
 const CuentasCorrientes = () => {
   const [clientes, setClientes] = useState([]);
   const [todosLosClientes, setTodosLosClientes] = useState([]);
@@ -70,6 +77,7 @@ const CuentasCorrientes = () => {
       if (clienteSeleccionado?.id === clienteId) {
         const updated = clientesActualizados.find(c => c.id === clienteId);
         if (updated) setClienteSeleccionado(updated);
+        fetchVentasCliente(clienteId);
         fetchPagosCliente(clienteId);
       }
     } catch (error) {
@@ -268,12 +276,15 @@ const CuentasCorrientes = () => {
                         ${venta.total?.toLocaleString('es-AR')}
                       </p>
                       <span className={`text-xs px-2 py-1 rounded-full ${
-                        venta.estado === 'PAGADA' 
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
+                        ESTADO_VENTA_STYLE[venta.estado] || ESTADO_VENTA_STYLE.PENDIENTE
                       }`}>
                         {venta.estado}
                       </span>
+                      {venta.estado !== 'ANULADA' && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Pagado ${venta.montoPagado?.toLocaleString('es-AR')} · Pendiente ${venta.saldoPendiente?.toLocaleString('es-AR')}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}

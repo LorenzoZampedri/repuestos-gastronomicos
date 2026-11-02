@@ -31,4 +31,8 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
     @EntityGraph(attributePaths = {"cliente", "usuario"})
     @Query("SELECT v FROM Venta v WHERE v.estado IN ('PENDIENTE', 'PARCIAL') ORDER BY v.fecha DESC")
     List<Venta> findVentasPendientes();
+
+    @EntityGraph(attributePaths = {"cliente", "usuario"})
+    @Query("SELECT v FROM Venta v WHERE v.cliente.id = :clienteId AND v.estado IN ('PENDIENTE', 'PARCIAL') ORDER BY v.fecha ASC")
+    List<Venta> findVentasAbiertasPorCliente(@Param("clienteId") Long clienteId);
 }
