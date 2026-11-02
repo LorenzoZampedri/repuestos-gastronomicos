@@ -67,7 +67,7 @@ const Dashboard = () => {
       value: stats?.productosStockBajo || 0,
       icon: AlertTriangle,
       color: 'bg-red-500',
-      link: '/productos',
+      link: '/productos?stock=bajo',
       alert: (stats?.productosStockBajo || 0) > 0
     }
   ];
@@ -270,7 +270,7 @@ const Dashboard = () => {
               </p>
             </div>
             <Link 
-              to="/productos"
+              to="/productos?stock=bajo"
               className="ml-auto text-sm font-medium text-red-600 hover:text-red-700"
             >
               Ver productos →
