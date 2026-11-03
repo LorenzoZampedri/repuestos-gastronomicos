@@ -1,8 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Save, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+
+const MENSAJE_IMAGEN_URL_INVALIDA =
+  'Ingresá una URL completa (https://...) o una ruta local que empiece con / (ej: /images/archivo.jpg)';
+
+const esImagenUrlValida = (valor) => {
+  const v = (valor || '').trim();
+  if (v === '') return true;
+  if (/^https?:\/\/\S+$/i.test(v)) return true;
+  if (/^\/(?!\/)\S*$/.test(v)) return true;
+  return false;
+};
 
 const ProductoForm = () => {
   const { id } = useParams();
@@ -22,6 +33,8 @@ const ProductoForm = () => {
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [imagenError, setImagenError] = useState('');
+  const imagenInputRef = useRef(null);
 
   useEffect(() => {
     fetchCategorias();
@@ -64,17 +77,29 @@ const ProductoForm = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'imagenUrl') setImagenError('');
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const imagenUrl = formData.imagenUrl.trim();
+    if (!esImagenUrlValida(imagenUrl)) {
+      setImagenError(MENSAJE_IMAGEN_URL_INVALIDA);
+      toast.error(MENSAJE_IMAGEN_URL_INVALIDA);
+      if (imagenInputRef.current) imagenInputRef.current.focus();
+      return;
+    }
+    setImagenError('');
+
     setSaving(true);
     
     try {
       const payload = {
         ...formData,
         codigoBarras: formData.codigoBarras.trim() || null,
+        imagenUrl,
         precioUsd: parseFloat(formData.precioUsd) || 0,
         stockActual: parseInt(formData.stockActual) || 0,
         stockMinimo: parseInt(formData.stockMinimo) || 5,
@@ -231,13 +256,21 @@ const ProductoForm = () => {
         <div>
           <label className="label">URL de imagen (opcional)</label>
           <input
-            type="url"
+            type="text"
+            inputMode="url"
             name="imagenUrl"
             value={formData.imagenUrl}
             onChange={handleChange}
+            ref={imagenInputRef}
             className="input"
-            placeholder="https://ejemplo.com/imagen.jpg"
+            placeholder="https://ejemplo.com/imagen.jpg o /images/archivo.jpg"
           />
+          {imagenError && (
+            <p className="text-xs text-red-500 mt-1">{imagenError}</p>
+          )}
+          <p className="text-xs text-gray-500 mt-1">
+            URL completa (https://...) o ruta local (/images/archivo.jpg)
+          </p>
         </div>
 
         {/* Preview de imagen */}
