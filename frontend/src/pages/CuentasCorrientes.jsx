@@ -20,6 +20,7 @@ const CuentasCorrientes = () => {
   const [pagos, setPagos] = useState([]);
   const [ajustandoSaldo, setAjustandoSaldo] = useState(null);
   const [montoAjuste, setMontoAjuste] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState(null);
 
   useEffect(() => {
     fetchClientesConDeuda();
@@ -89,9 +90,28 @@ const CuentasCorrientes = () => {
   const totalDeuda = clientesConDeuda.reduce((sum, c) => sum + (c.saldoCorriente || 0), 0);
   const clientesAlDia = todosLosClientes.filter(c => (c.saldoCorriente || 0) <= 0).length;
 
-  const clientesFiltrados = clientes.filter(c =>
-    c.nombre.toLowerCase().includes(busqueda.toLowerCase())
-  );
+  const toggleFiltroEstado = (estado) => {
+    setFiltroEstado(prev => prev === estado ? null : estado);
+  };
+
+  const clientesFiltrados = clientes.filter(c => {
+    const saldo = c.saldoCorriente || 0;
+    if (filtroEstado === 'deuda' && saldo <= 0) return false;
+    if (filtroEstado === 'aldia' && saldo > 0) return false;
+    return c.nombre.toLowerCase().includes(busqueda.toLowerCase());
+  });
+
+  const tituloLista = filtroEstado === 'deuda'
+    ? `Clientes · con deuda (${clientesFiltrados.length})`
+    : filtroEstado === 'aldia'
+      ? `Clientes · al día (${clientesFiltrados.length})`
+      : 'Clientes';
+
+  const mensajeListaVacia = filtroEstado === 'deuda'
+    ? 'No hay clientes con deuda'
+    : filtroEstado === 'aldia'
+      ? 'No hay clientes al día'
+      : 'No se encontraron clientes';
 
   if (loading) {
     return (
@@ -111,7 +131,14 @@ const CuentasCorrientes = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="card">
+        <button
+          type="button"
+          onClick={() => toggleFiltroEstado('deuda')}
+          aria-pressed={filtroEstado === 'deuda'}
+          className={`card w-full text-left cursor-pointer transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 ${
+            filtroEstado === 'deuda' ? 'ring-2 ring-red-400 bg-red-50' : ''
+          }`}
+        >
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
               <AlertCircle className="w-6 h-6 text-red-600" />
@@ -121,7 +148,7 @@ const CuentasCorrientes = () => {
               <p className="text-2xl font-bold text-gray-900">{clientesConDeuda.length}</p>
             </div>
           </div>
-        </div>
+        </button>
         <div className="card">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
@@ -135,7 +162,14 @@ const CuentasCorrientes = () => {
             </div>
           </div>
         </div>
-        <div className="card">
+        <button
+          type="button"
+          onClick={() => toggleFiltroEstado('aldia')}
+          aria-pressed={filtroEstado === 'aldia'}
+          className={`card w-full text-left cursor-pointer transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:ring-offset-2 ${
+            filtroEstado === 'aldia' ? 'ring-2 ring-green-400 bg-green-50' : ''
+          }`}
+        >
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
               <CheckCircle className="w-6 h-6 text-green-600" />
@@ -145,7 +179,7 @@ const CuentasCorrientes = () => {
               <p className="text-2xl font-bold text-green-600">{clientesAlDia}</p>
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Search */}
@@ -166,7 +200,7 @@ const CuentasCorrientes = () => {
         {/* Clients List */}
         <div className="lg:col-span-1">
           <div className="card">
-            <h3 className="font-semibold text-gray-900 mb-4">Clientes</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">{tituloLista}</h3>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {clientesFiltrados.map((cliente) => (
                 <button
@@ -193,7 +227,7 @@ const CuentasCorrientes = () => {
               ))}
               {clientesFiltrados.length === 0 && (
                 <p className="text-center text-gray-500 py-4">
-                  No se encontraron clientes con deuda
+                  {mensajeListaVacia}
                 </p>
               )}
             </div>
