@@ -10,13 +10,13 @@ import java.util.List;
 @Repository
 public interface ClienteRepository extends JpaRepository<Cliente, Long> {
     
-    List<Cliente> findByActivoTrue();
+    List<Cliente> findByActivoTrueOrderByIdAsc();
     
     @Query("SELECT c FROM Cliente c WHERE c.activo = true AND " +
            "(LOWER(c.nombre) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
-           "LOWER(c.telefono) LIKE LOWER(CONCAT('%', :busqueda, '%')))")
+           "LOWER(c.telefono) LIKE LOWER(CONCAT('%', :busqueda, '%'))) ORDER BY c.id ASC")
     List<Cliente> buscar(@Param("busqueda") String busqueda);
     
-    @Query("SELECT c FROM Cliente c WHERE c.activo = true AND c.saldoCorriente > 0")
+    @Query("SELECT c FROM Cliente c WHERE c.activo = true AND c.saldoCorriente > 0 ORDER BY c.id ASC")
     List<Cliente> findClientesConDeuda();
 }

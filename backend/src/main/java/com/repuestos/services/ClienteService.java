@@ -20,7 +20,7 @@ public class ClienteService {
     private final VentaService ventaService;
     
     public List<Cliente> listarTodos() {
-        return clienteRepository.findByActivoTrue();
+        return clienteRepository.findByActivoTrueOrderByIdAsc();
     }
     
     public Cliente buscarPorId(Long id) {
