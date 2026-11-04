@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Package, 
@@ -9,6 +9,7 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../services/api';
 
@@ -16,10 +17,45 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [metricasActivas, setMetricasActivas] = useState(['monto']);
+  const [dias, setDias] = useState(7);
+  const [serie, setSerie] = useState([]);
+  const [totalesPeriodo, setTotalesPeriodo] = useState(null);
+  const [cargandoGrafico, setCargandoGrafico] = useState(true);
+  const ultimoDiasRef = useRef(7);
 
   useEffect(() => {
     fetchStats();
   }, []);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    const fetchVentas = async () => {
+      setCargandoGrafico(true);
+      try {
+        const response = await api.get('/api/dashboard/ventas', { params: { dias } });
+        if (cancelado) return;
+        setSerie(response.data.serie || []);
+        setTotalesPeriodo(response.data.totales || null);
+        ultimoDiasRef.current = response.data.dias || dias;
+      } catch (error) {
+        if (cancelado) return;
+        console.error('Error fetching ventas del período:', error);
+        toast.error('No se pudieron cargar las ventas del período');
+        setDias(ultimoDiasRef.current);
+      } finally {
+        if (!cancelado) {
+          setCargandoGrafico(false);
+        }
+      }
+    };
+
+    fetchVentas();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [dias]);
 
   const fetchStats = async () => {
     try {
@@ -72,7 +108,7 @@ const Dashboard = () => {
     }
   ];
 
-  const chartData = stats?.ventasSemana || [];
+  const chartData = serie;
 
   const formatCurrency = (value) => `$${Number(value || 0).toLocaleString('es-AR')}`;
   const formatNumber = (value) => Number(value || 0).toLocaleString('es-AR');
@@ -134,76 +170,107 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sales Chart */}
         <div className="card">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Ventas de la Semana</h3>
-            <div className="flex rounded-lg bg-gray-100 p-1">
-              {Object.entries(metricas).map(([key, cfg]) => {
-                const activa = metricasActivas.includes(key);
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => toggleMetrica(key)}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                      activa
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-400 hover:text-gray-600'
-                    }`}
-                  >
-                    <span
-                      className="inline-block w-2.5 h-2.5 rounded-full mr-1.5 align-middle"
-                      style={{ backgroundColor: activa ? cfg.color : '#d1d5db' }}
-                    />
-                    {cfg.label}
-                  </button>
-                );
-              })}
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Ventas · últimos {dias} días</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Total del período: {formatCurrency(totalesPeriodo?.monto)} · {formatNumber(totalesPeriodo?.cantidadVentas)} ventas · {formatNumber(totalesPeriodo?.cantidadProductos)} productos
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                aria-label="Período del gráfico"
+                className="input w-auto py-1.5 text-sm"
+                value={dias}
+                onChange={(e) => setDias(Number(e.target.value))}
+              >
+                <option value={7}>Últimos 7 días</option>
+                <option value={30}>Últimos 30 días</option>
+                <option value={90}>Últimos 90 días</option>
+              </select>
+              <div className="flex rounded-lg bg-gray-100 p-1">
+                {Object.entries(metricas).map(([key, cfg]) => {
+                  const activa = metricasActivas.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => toggleMetrica(key)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                        activa
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-400 hover:text-gray-600'
+                      }`}
+                    >
+                      <span
+                        className="inline-block w-2.5 h-2.5 rounded-full mr-1.5 align-middle"
+                        style={{ backgroundColor: activa ? cfg.color : '#d1d5db' }}
+                      />
+                      {cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                <YAxis
-                  yAxisId="left"
-                  stroke="#6b7280"
-                  fontSize={12}
-                  tickFormatter={leftFormatter}
-                />
-                {usaDobleEje && (
-                  <YAxis
-                    yAxisId="right"
-                    orientation="right"
+          <div className="relative h-64">
+            <div className={`h-full transition-opacity ${cargandoGrafico ? 'opacity-50' : ''}`}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="name"
                     stroke="#6b7280"
                     fontSize={12}
-                    allowDecimals={false}
-                    tickFormatter={formatNumber}
+                    interval={dias === 7 ? 0 : dias === 30 ? 3 : 1}
+                    minTickGap={8}
                   />
-                )}
-                <Tooltip 
-                  formatter={formatearTicket}
-                  contentStyle={{ 
-                    backgroundColor: 'white', 
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px'
-                  }}
-                />
-                <Legend />
-                {Object.entries(metricas)
-                  .filter(([key]) => metricasActivas.includes(key))
-                  .map(([key, cfg]) => (
-                    <Bar
-                      key={key}
-                      dataKey={cfg.dataKey}
-                      name={cfg.label}
-                      fill={cfg.color}
-                      yAxisId={yAxisIdFor(key)}
-                      radius={[4, 4, 0, 0]}
+                  <YAxis
+                    yAxisId="left"
+                    stroke="#6b7280"
+                    fontSize={12}
+                    tickFormatter={leftFormatter}
+                  />
+                  {usaDobleEje && (
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      stroke="#6b7280"
+                      fontSize={12}
+                      allowDecimals={false}
+                      tickFormatter={formatNumber}
                     />
-                  ))}
-              </BarChart>
-            </ResponsiveContainer>
+                  )}
+                  <Tooltip
+                    formatter={formatearTicket}
+                    labelFormatter={(label, payload) => payload?.[0]?.payload?.etiqueta || label}
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Legend />
+                  {Object.entries(metricas)
+                    .filter(([key]) => metricasActivas.includes(key))
+                    .map(([key, cfg]) => (
+                      <Bar
+                        key={key}
+                        dataKey={cfg.dataKey}
+                        name={cfg.label}
+                        fill={cfg.color}
+                        yAxisId={yAxisIdFor(key)}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {cargandoGrafico && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-800"></div>
+              </div>
+            )}
           </div>
         </div>
 

@@ -25,6 +25,11 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
     @Query("SELECT COUNT(v) FROM Venta v WHERE v.fecha BETWEEN :inicio AND :fin AND v.estado <> 'ANULADA'")
     Long countVentasPorPeriodo(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
     
+    @Query(value = "SELECT CAST(v.fecha AS date) AS dia, COALESCE(SUM(v.total), 0) AS monto, COUNT(*) AS cantidad "
+            + "FROM ventas v WHERE v.fecha >= :inicio AND v.fecha < :fin AND v.estado <> 'ANULADA' "
+            + "GROUP BY CAST(v.fecha AS date)", nativeQuery = true)
+    List<Object[]> agregadoVentasPorDia(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
+
     @Query("SELECT COALESCE(SUM(v.total), 0) FROM Venta v WHERE v.estado <> 'ANULADA'")
     BigDecimal sumTotalVentas();
     
