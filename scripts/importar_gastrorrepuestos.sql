@@ -105,7 +105,7 @@ ON CONFLICT (codigo_barras) DO UPDATE SET
 
 -- ART-105-B: Resistencia cafetera (USD, 220V)
 INSERT INTO productos (codigo_barras, nombre, descripcion, precio, precio_usd, stock_actual, stock_minimo, imagen_url, categoria_id)
-SELECT 'ART-105-B', 'Resistencia Cafetera 2000W 220V', 'Resistencia para cafetera 2000W 220V - precio USD', 0, 42, 3, 5, '/images/resistenciaCafeteria220Vjpeg.webp', c.id
+SELECT 'ART-105-B', 'Resistencia Cafetera 2000W 220V', 'Resistencia para cafetera 2000W 220V - precio USD', 0, 42, 3, 5, '/images/resistenciaCafetera220Vjpeg.webp', c.id
 FROM categorias c WHERE c.nombre = 'Eléctrico'
 ON CONFLICT (codigo_barras) DO UPDATE SET
     nombre = EXCLUDED.nombre,

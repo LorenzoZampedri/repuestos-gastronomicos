@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -18,4 +19,7 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
     
     @Query("SELECT p FROM Pago p WHERE p.fecha BETWEEN :inicio AND :fin ORDER BY p.fecha DESC")
     List<Pago> findPagosPorPeriodo(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
+
+    @Query("SELECT COALESCE(SUM(p.monto), 0) FROM Pago p WHERE p.venta.id = :ventaId")
+    BigDecimal sumMontoPagadoPorVenta(@Param("ventaId") Long ventaId);
 }

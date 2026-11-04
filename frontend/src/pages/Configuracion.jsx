@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, DollarSign, MessageCircle, History, ChevronDown, ChevronUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { formatMoney } from '../utils/format';
 
 const Configuracion = () => {
   const [cotizacion, setCotizacion] = useState('');
@@ -119,8 +120,9 @@ const Configuracion = () => {
           </div>
         </div>
         <div>
-          <label className="label">1 USD = ARS $</label>
+          <label htmlFor="cotizacion-usd" className="label">1 USD = ARS $</label>
           <input
+            id="cotizacion-usd"
             type="number"
             value={cotizacion}
             onChange={(e) => setCotizacion(e.target.value)}
@@ -189,10 +191,10 @@ const Configuracion = () => {
                             {new Date(item.fecha).toLocaleString('es-AR')}
                           </td>
                           <td className="py-2 px-3 text-right font-mono text-gray-500">
-                            ${Number(item.valorAnterior).toLocaleString('es-AR')}
+                            {formatMoney(item.valorAnterior, 'ARS')}
                           </td>
                           <td className="py-2 px-3 text-right font-mono font-semibold text-primary-800">
-                            ${Number(item.valorNuevo).toLocaleString('es-AR')}
+                            {formatMoney(item.valorNuevo, 'ARS')}
                           </td>
                           <td className="py-2 px-3 text-gray-600">{item.usuario || '-'}</td>
                         </tr>
@@ -215,13 +217,14 @@ const Configuracion = () => {
           <div>
             <h2 className="font-semibold text-gray-900">Número de WhatsApp</h2>
             <p className="text-sm text-gray-500">
-              Número al que se dirigén las consultas desde el catálogo público
+              Número al que se dirigen las consultas desde el catálogo público
             </p>
           </div>
         </div>
         <div>
-          <label className="label">Número con código de país</label>
+          <label htmlFor="whatsapp-number" className="label">Número con código de país</label>
           <input
+            id="whatsapp-number"
             type="text"
             value={whatsapp}
             onChange={(e) => setWhatsapp(e.target.value)}

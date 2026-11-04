@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { formatMoney, whatsappUrl } from '../utils/format';
 
 const CurrencyContext = createContext();
 
 export const MONEDAS = { USD: 'USD', ARS: 'ARS' };
 export const UMBRAL_DESCUENTO = 10;
 export const PCT_DESCUENTO = 0.15;
+export const WHATSAPP_DEFAULT = '5491112345678';
 
 export const useCurrency = () => {
   const context = useContext(CurrencyContext);
@@ -18,18 +20,22 @@ export const useCurrency = () => {
 export const CurrencyProvider = ({ children }) => {
   const [moneda, setMonedaState] = useState(() => localStorage.getItem('moneda') || MONEDAS.USD);
   const [cotizacion, setCotizacion] = useState(null);
+  const [whatsappNumber, setWhatsappNumber] = useState(WHATSAPP_DEFAULT);
 
   useEffect(() => {
-    const fetchCotizacion = async () => {
+    const fetchConfiguracion = async () => {
       try {
         const response = await api.get('/api/configuracion/publica');
         setCotizacion(response.data.cotizacionUsdArs || null);
+        if (response.data.whatsappNumber) {
+          setWhatsappNumber(response.data.whatsappNumber);
+        }
       } catch (error) {
-        console.error('Error al cargar cotización:', error);
+        console.error('Error al cargar configuración:', error);
         setCotizacion(null);
       }
     };
-    fetchCotizacion();
+    fetchConfiguracion();
   }, []);
 
   const setMoneda = (nuevaMoneda) => {
@@ -49,9 +55,13 @@ export const CurrencyProvider = ({ children }) => {
   const formatPrice = useCallback((precioUsd) => {
     const valor = convertir(precioUsd);
     if (valor == null || valor <= 0) return 'Consultar precio';
-    const formateado = valor.toLocaleString('es-AR', { maximumFractionDigits: 2 });
-    return moneda === MONEDAS.USD ? `U$S ${formateado}` : `$${formateado}`;
+    return formatMoney(valor, moneda);
   }, [moneda, convertir]);
+
+  const getWhatsAppUrl = useCallback(
+    (message) => whatsappUrl(whatsappNumber, message),
+    [whatsappNumber]
+  );
 
   const aplicarDescuento = useCallback((precioUsd) => {
     if (precioUsd == null) return null;
@@ -66,6 +76,8 @@ export const CurrencyProvider = ({ children }) => {
       setMoneda,
       cotizacion,
       hayCotizacion,
+      whatsappNumber,
+      getWhatsAppUrl,
       convertir,
       formatPrice,
       aplicarDescuento,

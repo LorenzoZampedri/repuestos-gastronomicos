@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Search, Plus, Edit2, Trash2, Users, Phone, Mail, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import EmptyState from '../components/EmptyState';
+import { formatMoney } from '../utils/format';
 
 const Clientes = () => {
   const [clientes, setClientes] = useState([]);
@@ -101,7 +103,8 @@ const Clientes = () => {
               placeholder="Buscar por nombre o teléfono..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleBuscar()}
+              onKeyDown={(e) => e.key === 'Enter' && handleBuscar()}
+              aria-label="Buscar clientes"
               className="input pl-10"
             />
           </div>
@@ -128,15 +131,17 @@ const Clientes = () => {
               <div className="flex gap-1">
                 <Link
                   to={`/clientes/${cliente.id}`}
-                  className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                  className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  aria-label={`Editar ${cliente.nombre}`}
                 >
-                  <Edit2 className="w-4 h-4" />
+                  <Edit2 className="w-4 h-4" aria-hidden="true" />
                 </Link>
                 <button
                   onClick={() => handleEliminar(cliente.id)}
-                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                  aria-label={`Eliminar ${cliente.nombre}`}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -161,7 +166,7 @@ const Clientes = () => {
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-500">Saldo pendiente</span>
                   <span className="font-semibold text-red-600">
-                    ${cliente.saldoCorriente?.toLocaleString('es-AR')}
+                    {formatMoney(cliente.saldoCorriente, 'ARS')}
                   </span>
                 </div>
                 {ajustandoSaldo === cliente.id ? (
@@ -204,8 +209,12 @@ const Clientes = () => {
         ))}
         
         {clientes.length === 0 && (
-          <div className="col-span-full text-center py-12 text-gray-500">
-            No se encontraron clientes
+          <div className="col-span-full">
+            <EmptyState
+              icon={Users}
+              title="No se encontraron clientes"
+              description="Probá con otro término de búsqueda o agregá un cliente nuevo."
+            />
           </div>
         )}
       </div>

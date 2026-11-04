@@ -8,6 +8,7 @@ import { CurrencyProvider } from './context/CurrencyContext';
 // Layout
 import Layout from './components/Layout';
 import PublicLayout from './components/PublicLayout';
+import PageTransition from './components/PageTransition';
 
 // Pages
 import Login from './pages/Login';
@@ -98,7 +99,9 @@ function App() {
           {/* Public Routes */}
           <Route path="/login" element={
             <PublicRoute>
-              <Login />
+              <PageTransition>
+                <Login />
+              </PageTransition>
             </PublicRoute>
           } />
           

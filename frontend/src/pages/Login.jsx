@@ -45,8 +45,9 @@ const Login = () => {
           
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="label">Usuario</label>
+              <label htmlFor="login-usuario" className="label">Usuario</label>
               <input
+                id="login-usuario"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -58,9 +59,10 @@ const Login = () => {
             </div>
             
             <div>
-              <label className="label">Contraseña</label>
+              <label htmlFor="login-password" className="label">Contraseña</label>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -72,9 +74,10 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff className="w-5 h-5" aria-hidden="true" /> : <Eye className="w-5 h-5" aria-hidden="true" />}
                 </button>
               </div>
             </div>

@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, Plus, Edit2, Trash2, Package, Filter } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Search, Plus, Edit2, Trash2, Package, Filter, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import EmptyState from '../components/EmptyState';
+import { formatMoney } from '../utils/format';
+
+const esStockBajo = (p) => p.stockMinimo != null && p.stockActual <= p.stockMinimo;
 
 const Productos = () => {
   const [productos, setProductos] = useState([]);
@@ -11,7 +15,22 @@ const Productos = () => {
   const [busqueda, setBusqueda] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [categorias, setCategorias] = useState([]);
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isAdmin } = useAuth();
+
+  const filtroStockBajo = searchParams.get('stock') === 'bajo';
+
+  const toggleStockBajo = () => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (next.get('stock') === 'bajo') {
+        next.delete('stock');
+      } else {
+        next.set('stock', 'bajo');
+      }
+      return next;
+    }, { replace: true });
+  };
 
   useEffect(() => {
     fetchProductos();
@@ -65,8 +84,17 @@ const Productos = () => {
 
   const productosFiltrados = productos.filter(p => {
     if (filtroCategoria && p.categoria?.id !== parseInt(filtroCategoria)) return false;
+    if (filtroStockBajo && !esStockBajo(p)) return false;
     return true;
   });
+
+  const productosVisibles = filtroStockBajo
+    ? [...productosFiltrados].sort(
+        (a, b) => (a.stockActual - a.stockMinimo) - (b.stockActual - b.stockMinimo)
+      )
+    : productosFiltrados;
+
+  const cantidadStockBajo = productos.filter(esStockBajo).length;
 
   if (loading) {
     return (
@@ -82,7 +110,11 @@ const Productos = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
-          <p className="text-gray-500">{productos.length} productos en inventario</p>
+          <p className="text-gray-500">
+            {filtroStockBajo
+              ? `${productosVisibles.length} productos con stock bajo`
+              : `${productos.length} productos en inventario`}
+          </p>
         </div>
         {isAdmin() && (
           <Link to="/productos/nuevo" className="btn-primary flex items-center gap-2">
@@ -102,7 +134,8 @@ const Productos = () => {
               placeholder="Buscar por nombre, código o descripción..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleBuscar()}
+              onKeyDown={(e) => e.key === 'Enter' && handleBuscar()}
+              aria-label="Buscar productos"
               className="input pl-10"
             />
           </div>
@@ -110,6 +143,7 @@ const Productos = () => {
             <select
               value={filtroCategoria}
               onChange={(e) => setFiltroCategoria(e.target.value)}
+              aria-label="Filtrar por categoría"
               className="input w-auto"
             >
               <option value="">Todas las categorías</option>
@@ -117,6 +151,18 @@ const Productos = () => {
                 <option key={cat.id} value={cat.id}>{cat.nombre}</option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={toggleStockBajo}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors duration-200 ${
+                filtroStockBajo
+                  ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              Stock bajo ({cantidadStockBajo})
+            </button>
             <button onClick={handleBuscar} className="btn-primary">
               Buscar
             </button>
@@ -139,7 +185,7 @@ const Productos = () => {
               </tr>
             </thead>
             <tbody>
-              {productosFiltrados.map((producto) => (
+              {productosVisibles.map((producto) => (
                 <tr key={producto.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
@@ -167,19 +213,19 @@ const Productos = () => {
                   <td className="py-3 px-4 text-right">
                     <span className="font-semibold text-gray-900">
                       {producto.precioUsd > 0
-                        ? `U$S ${Number(producto.precioUsd).toLocaleString('es-AR')}`
+                        ? formatMoney(producto.precioUsd, 'USD')
                         : <span className="text-sm text-gray-400 font-normal">Sin precio USD</span>}
                     </span>
                     {producto.precioUsd > 0 && producto.precio > 0 && (
                       <p className="text-xs text-gray-500 mt-0.5">
-                        ${Number(producto.precio).toLocaleString('es-AR')}
+                        {formatMoney(producto.precio, 'ARS')}
                       </p>
                     )}
                   </td>
                   <td className="py-3 px-4 text-right">
                     <span className={`font-semibold ${
-                      producto.stockActual <= (producto.stockMinimo || 5) 
-                        ? 'text-red-600' 
+                      esStockBajo(producto)
+                        ? 'text-red-600'
                         : 'text-green-600'
                     }`}>
                       {producto.stockActual}
@@ -191,15 +237,17 @@ const Productos = () => {
                         <>
                           <Link
                             to={`/productos/${producto.id}`}
-                            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                            aria-label={`Editar ${producto.nombre}`}
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="w-4 h-4" aria-hidden="true" />
                           </Link>
                           <button
                             onClick={() => handleEliminar(producto.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                            aria-label={`Eliminar ${producto.nombre}`}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" aria-hidden="true" />
                           </button>
                         </>
                       )}
@@ -207,10 +255,18 @@ const Productos = () => {
                   </td>
                 </tr>
               ))}
-              {productosFiltrados.length === 0 && (
+              {productosVisibles.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="py-12 text-center text-gray-500">
-                    No se encontraron productos
+                  <td colSpan="6">
+                    <EmptyState
+                      icon={Package}
+                      title={filtroStockBajo ? 'No hay productos con stock bajo' : 'No se encontraron productos'}
+                      description={
+                        filtroStockBajo
+                          ? 'Todos los productos tienen stock suficiente.'
+                          : 'Probá con otro término de búsqueda o cambiá la categoría.'
+                      }
+                    />
                   </td>
                 </tr>
               )}

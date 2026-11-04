@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { useCurrency, MONEDAS, PCT_DESCUENTO, UMBRAL_DESCUENTO } from './CurrencyContext';
+import { formatMoney } from '../utils/format';
 
 const CartContext = createContext();
 
@@ -13,7 +14,7 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
-  const { moneda, cotizacion, hayCotizacion, convertir } = useCurrency();
+  const { moneda, cotizacion, hayCotizacion, convertir, getWhatsAppUrl } = useCurrency();
   const [items, setItems] = useState(() => {
     const saved = localStorage.getItem('cart');
     return saved ? JSON.parse(saved) : [];
@@ -97,24 +98,22 @@ export const CartProvider = ({ children }) => {
         return;
       }
       const usdUnitario = tieneDescuento(item) ? usdLista * (1 - PCT_DESCUENTO) : usdLista;
-      const monedaLabel = moneda === MONEDAS.USD ? 'U$S' : '$';
       const fmt = (v) => {
         const convertido = convertir(v);
-        return convertido == null ? '-' : convertido.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+        return convertido == null ? '-' : formatMoney(convertido, moneda);
       };
-      mensaje += `${index + 1}. ${item.nombre} x${item.cantidad} - ${monedaLabel} ${fmt(usdUnitario)} c/u`;
+      mensaje += `${index + 1}. ${item.nombre} x${item.cantidad} - ${fmt(usdUnitario)} c/u`;
       if (tieneDescuento(item)) {
-        mensaje += ` (precio lista ${monedaLabel} ${fmt(usdLista)}, -${Math.round(PCT_DESCUENTO * 100)}% por cantidad)`;
+        mensaje += ` (precio lista ${fmt(usdLista)}, -${Math.round(PCT_DESCUENTO * 100)}% por cantidad)`;
       }
       mensaje += '\n';
     });
 
     if (moneda === MONEDAS.USD && hayCotizacion) {
-      mensaje += `\n(Referencia pesos: 1 U$S = $${Number(cotizacion).toLocaleString('es-AR')})\n`;
+      mensaje += `\n(Referencia pesos: 1 U$S = ${formatMoney(cotizacion, 'ARS')})\n`;
     }
     if (cartTotal > 0) {
-      const totalLabel = moneda === MONEDAS.USD ? 'U$S' : '$';
-      mensaje += `\nTotal aproximado: ${totalLabel} ${cartTotal.toLocaleString('es-AR', { maximumFractionDigits: 2 })}\n`;
+      mensaje += `\nTotal aproximado: ${formatMoney(cartTotal, moneda)}\n`;
     }
     mensaje += '\n¿Podrían darme más información?';
 
@@ -127,7 +126,7 @@ export const CartProvider = ({ children }) => {
       toast.error('El carrito está vacío');
       return;
     }
-    window.open(`https://wa.me/5491112345678?text=${encodeURIComponent(mensaje)}`, '_blank');
+    window.open(getWhatsAppUrl(mensaje), '_blank');
   };
 
   return (

@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Minus, Trash2, ShoppingCart, ArrowLeft, CreditCard } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
-
-const UMBRAL_DESCUENTO = 10;
-const PCT_DESCUENTO = 0.15;
+import { UMBRAL_DESCUENTO, PCT_DESCUENTO } from '../context/CurrencyContext';
+import { formatMoney } from '../utils/format';
 
 const precioUnitarioItem = (item) => {
   const base = item.producto.precio || 0;
@@ -189,8 +188,9 @@ const VentaRapida = () => {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-700">Tipo:</label>
+            <label htmlFor="tipo-operacion" className="text-sm text-gray-700">Tipo:</label>
             <select
+              id="tipo-operacion"
               value={tipoOperacion}
               onChange={(e) => setTipoOperacion(e.target.value)}
               className="px-3 py-2 border rounded-lg text-sm"
@@ -241,7 +241,7 @@ const VentaRapida = () => {
                   <p className="text-xs text-gray-500">{producto.codigoBarras}</p>
                   <div className="flex items-center justify-between mt-2">
                     <span className="font-bold text-primary-800">
-                      ${producto.precio?.toLocaleString('es-AR')}
+                      {formatMoney(producto.precio, 'ARS')}
                     </span>
                     <span className={`text-xs ${producto.stockActual <= 5 ? 'text-red-500' : 'text-gray-500'}`}>
                       Stock: {producto.stockActual}
@@ -259,15 +259,17 @@ const VentaRapida = () => {
               <h2 className="text-lg font-semibold mb-4">Cargar deuda a cliente</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="label">Cliente</label>
+                  <label htmlFor="cliente-deuda" className="label">Cliente</label>
                   <input
                     type="text"
                     placeholder="Buscar cliente..."
+                    aria-label="Buscar cliente"
                     value={busquedaCliente}
                     onChange={(e) => setBusquedaCliente(e.target.value)}
                     className="input mb-2"
                   />
                   <select
+                    id="cliente-deuda"
                     value={clienteSeleccionado}
                     onChange={(e) => setClienteSeleccionado(e.target.value)}
                     className="input"
@@ -281,8 +283,9 @@ const VentaRapida = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="label">Monto de la deuda</label>
+                  <label htmlFor="monto-deuda" className="label">Monto de la deuda</label>
                   <input
+                    id="monto-deuda"
                     type="number"
                     value={montoDeuda}
                     onChange={(e) => setMontoDeuda(e.target.value)}
@@ -293,8 +296,9 @@ const VentaRapida = () => {
                   />
                 </div>
                 <div>
-                  <label className="label">Observaciones</label>
+                  <label htmlFor="obs-deuda" className="label">Observaciones</label>
                   <textarea
+                    id="obs-deuda"
                     value={observacionesDeuda}
                     onChange={(e) => setObservacionesDeuda(e.target.value)}
                     placeholder="Motivo de la deuda..."
@@ -322,9 +326,9 @@ const VentaRapida = () => {
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {carrito.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              <ShoppingCart className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-              <p>El carrito esta vacio</p>
-              <p className="text-sm">Selecciona un producto</p>
+              <ShoppingCart className="w-12 h-12 mx-auto text-gray-300 mb-2" aria-hidden="true" />
+              <p>El carrito está vacío</p>
+              <p className="text-sm">Seleccioná un producto</p>
             </div>
           ) : (
             carrito.map((item) => {
@@ -335,11 +339,11 @@ const VentaRapida = () => {
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 text-sm">{item.producto.nombre}</p>
                   <p className="text-sm text-gray-500">
-                    ${unitario.toLocaleString('es-AR', { maximumFractionDigits: 2 })} c/u
+                    {formatMoney(unitario, 'ARS')} c/u
                     {conDescuento && (
                       <>
                         <span className="ml-1 text-xs text-gray-400 line-through">
-                          ${item.producto.precio?.toLocaleString('es-AR')}
+                          {formatMoney(item.producto.precio, 'ARS')}
                         </span>
                         <span className="ml-1 text-xs font-medium text-green-700">
                           -{Math.round(PCT_DESCUENTO * 100)}%
@@ -351,25 +355,28 @@ const VentaRapida = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => actualizarCantidad(item.producto.id, item.cantidad - 1)}
-                    className="w-7 h-7 flex items-center justify-center bg-white border rounded-lg hover:bg-gray-100"
+                    className="w-7 h-7 flex items-center justify-center bg-white border rounded-lg hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    aria-label={`Quitar una unidad de ${item.producto.nombre}`}
                   >
-                    <Minus className="w-3 h-3" />
+                    <Minus className="w-3 h-3" aria-hidden="true" />
                   </button>
                   <span className="w-8 text-center font-medium">{item.cantidad}</span>
                   <button
                     onClick={() => actualizarCantidad(item.producto.id, item.cantidad + 1)}
-                    className="w-7 h-7 flex items-center justify-center bg-white border rounded-lg hover:bg-gray-100"
+                    className="w-7 h-7 flex items-center justify-center bg-white border rounded-lg hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    aria-label={`Agregar una unidad de ${item.producto.nombre}`}
                   >
-                    <Plus className="w-3 h-3" />
+                    <Plus className="w-3 h-3" aria-hidden="true" />
                   </button>
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-gray-900">
-                    ${(unitario * item.cantidad).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+                    {formatMoney(unitario * item.cantidad, 'ARS')}
                   </p>
                   <button
                     onClick={() => eliminarDelCarrito(item.producto.id)}
                     className="text-red-500 hover:text-red-600 text-xs"
+                    aria-label={`Eliminar ${item.producto.nombre} del carrito`}
                   >
                     Eliminar
                   </button>
@@ -384,20 +391,22 @@ const VentaRapida = () => {
         <div className="p-4 border-t border-gray-200 space-y-4">
           {/* Client Selection */}
           <div>
-            <label className="label">Cliente (opcional)</label>
+            <label htmlFor="cliente-venta" className="label">Cliente (opcional)</label>
             <input
               type="text"
               placeholder="Buscar cliente..."
+              aria-label="Buscar cliente"
               value={busquedaCliente}
               onChange={(e) => setBusquedaCliente(e.target.value)}
               className="input text-sm mb-2"
             />
             <select
+              id="cliente-venta"
               value={clienteSeleccionado}
               onChange={(e) => setClienteSeleccionado(e.target.value)}
               className="input text-sm"
             >
-              <option value="">Venta anonima</option>
+              <option value="">Venta anónima</option>
               {clientesFiltrados.map(cliente => (
                 <option key={cliente.id} value={cliente.id}>
                   {cliente.nombre}
@@ -408,8 +417,9 @@ const VentaRapida = () => {
 
           {/* Payment Method */}
           <div>
-            <label className="label">Metodo de pago</label>
+            <label htmlFor="metodo-pago" className="label">Método de pago</label>
             <select
+              id="metodo-pago"
               value={metodoPago}
               onChange={(e) => setMetodoPago(e.target.value)}
               className="input"
@@ -425,7 +435,7 @@ const VentaRapida = () => {
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex justify-between text-lg font-bold">
               <span>Total</span>
-              <span className="text-primary-800">${total.toLocaleString('es-AR')}</span>
+              <span className="text-primary-800">{formatMoney(total, 'ARS')}</span>
             </div>
           </div>
 

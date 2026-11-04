@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Search, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { formatMoney } from '../utils/format';
+
+const ESTADO_VENTA_STYLE = {
+  PENDIENTE: 'bg-yellow-100 text-yellow-800',
+  PARCIAL: 'bg-orange-100 text-orange-800',
+  PAGADA: 'bg-green-100 text-green-800',
+  ANULADA: 'bg-gray-100 text-gray-800'
+};
 
 const CuentasCorrientes = () => {
   const [clientes, setClientes] = useState([]);
@@ -13,6 +21,7 @@ const CuentasCorrientes = () => {
   const [pagos, setPagos] = useState([]);
   const [ajustandoSaldo, setAjustandoSaldo] = useState(null);
   const [montoAjuste, setMontoAjuste] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState(null);
 
   useEffect(() => {
     fetchClientesConDeuda();
@@ -70,6 +79,7 @@ const CuentasCorrientes = () => {
       if (clienteSeleccionado?.id === clienteId) {
         const updated = clientesActualizados.find(c => c.id === clienteId);
         if (updated) setClienteSeleccionado(updated);
+        fetchVentasCliente(clienteId);
         fetchPagosCliente(clienteId);
       }
     } catch (error) {
@@ -81,9 +91,28 @@ const CuentasCorrientes = () => {
   const totalDeuda = clientesConDeuda.reduce((sum, c) => sum + (c.saldoCorriente || 0), 0);
   const clientesAlDia = todosLosClientes.filter(c => (c.saldoCorriente || 0) <= 0).length;
 
-  const clientesFiltrados = clientes.filter(c =>
-    c.nombre.toLowerCase().includes(busqueda.toLowerCase())
-  );
+  const toggleFiltroEstado = (estado) => {
+    setFiltroEstado(prev => prev === estado ? null : estado);
+  };
+
+  const clientesFiltrados = clientes.filter(c => {
+    const saldo = c.saldoCorriente || 0;
+    if (filtroEstado === 'deuda' && saldo <= 0) return false;
+    if (filtroEstado === 'aldia' && saldo > 0) return false;
+    return c.nombre.toLowerCase().includes(busqueda.toLowerCase());
+  });
+
+  const tituloLista = filtroEstado === 'deuda'
+    ? `Clientes · con deuda (${clientesFiltrados.length})`
+    : filtroEstado === 'aldia'
+      ? `Clientes · al día (${clientesFiltrados.length})`
+      : 'Clientes';
+
+  const mensajeListaVacia = filtroEstado === 'deuda'
+    ? 'No hay clientes con deuda'
+    : filtroEstado === 'aldia'
+      ? 'No hay clientes al día'
+      : 'No se encontraron clientes';
 
   if (loading) {
     return (
@@ -103,7 +132,14 @@ const CuentasCorrientes = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="card">
+        <button
+          type="button"
+          onClick={() => toggleFiltroEstado('deuda')}
+          aria-pressed={filtroEstado === 'deuda'}
+          className={`card w-full text-left cursor-pointer transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 ${
+            filtroEstado === 'deuda' ? 'ring-2 ring-red-400 bg-red-50' : ''
+          }`}
+        >
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
               <AlertCircle className="w-6 h-6 text-red-600" />
@@ -113,7 +149,7 @@ const CuentasCorrientes = () => {
               <p className="text-2xl font-bold text-gray-900">{clientesConDeuda.length}</p>
             </div>
           </div>
-        </div>
+        </button>
         <div className="card">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
@@ -122,12 +158,19 @@ const CuentasCorrientes = () => {
             <div>
               <p className="text-sm text-gray-500">Total adeudado</p>
               <p className="text-2xl font-bold text-orange-600">
-                ${totalDeuda.toLocaleString('es-AR')}
+                {formatMoney(totalDeuda, 'ARS')}
               </p>
             </div>
           </div>
         </div>
-        <div className="card">
+        <button
+          type="button"
+          onClick={() => toggleFiltroEstado('aldia')}
+          aria-pressed={filtroEstado === 'aldia'}
+          className={`card w-full text-left cursor-pointer transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:ring-offset-2 ${
+            filtroEstado === 'aldia' ? 'ring-2 ring-green-400 bg-green-50' : ''
+          }`}
+        >
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
               <CheckCircle className="w-6 h-6 text-green-600" />
@@ -137,7 +180,7 @@ const CuentasCorrientes = () => {
               <p className="text-2xl font-bold text-green-600">{clientesAlDia}</p>
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Search */}
@@ -147,6 +190,7 @@ const CuentasCorrientes = () => {
           <input
             type="text"
             placeholder="Buscar cliente..."
+            aria-label="Buscar cliente"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             className="input pl-10"
@@ -158,7 +202,7 @@ const CuentasCorrientes = () => {
         {/* Clients List */}
         <div className="lg:col-span-1">
           <div className="card">
-            <h3 className="font-semibold text-gray-900 mb-4">Clientes</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">{tituloLista}</h3>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {clientesFiltrados.map((cliente) => (
                 <button
@@ -177,7 +221,7 @@ const CuentasCorrientes = () => {
                     </div>
                     <span className={`font-semibold ${cliente.saldoCorriente > 0 ? 'text-red-600' : 'text-green-600'}`}>
                       {cliente.saldoCorriente > 0
-                        ? `$${cliente.saldoCorriente.toLocaleString('es-AR')}`
+                        ? formatMoney(cliente.saldoCorriente, 'ARS')
                         : 'Al día'}
                     </span>
                   </div>
@@ -185,7 +229,7 @@ const CuentasCorrientes = () => {
               ))}
               {clientesFiltrados.length === 0 && (
                 <p className="text-center text-gray-500 py-4">
-                  No se encontraron clientes con deuda
+                  {mensajeListaVacia}
                 </p>
               )}
             </div>
@@ -206,7 +250,7 @@ const CuentasCorrientes = () => {
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Saldo pendiente</p>
                   <p className="text-2xl font-bold text-red-600">
-                    ${clienteSeleccionado.saldoCorriente?.toLocaleString('es-AR')}
+                    {formatMoney(clienteSeleccionado.saldoCorriente, 'ARS')}
                   </p>
                   {clienteSeleccionado.saldoCorriente > 0 && <button
                     onClick={() => {
@@ -249,10 +293,11 @@ const CuentasCorrientes = () => {
               <h4 className="font-medium text-gray-700 mb-3">Historial de ventas</h4>
               <div className="space-y-3">
                 {ventas.map((venta) => (
-                    <div 
-                    key={venta.id} 
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => window.location.href = `/ventas#venta-${venta.id}`}
+                  <button
+                    key={venta.id}
+                    type="button"
+                    className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    onClick={() => { window.location.href = `/ventas#venta-${venta.id}`; }}
                     title="Ver venta en historial"
                   >
                     <div>
@@ -265,17 +310,20 @@ const CuentasCorrientes = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-gray-900">
-                        ${venta.total?.toLocaleString('es-AR')}
+                        {formatMoney(venta.total, 'ARS')}
                       </p>
                       <span className={`text-xs px-2 py-1 rounded-full ${
-                        venta.estado === 'PAGADA' 
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
+                        ESTADO_VENTA_STYLE[venta.estado] || ESTADO_VENTA_STYLE.PENDIENTE
                       }`}>
                         {venta.estado}
                       </span>
+                      {venta.estado !== 'ANULADA' && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Pagado ${venta.montoPagado?.toLocaleString('es-AR')} · Pendiente ${venta.saldoPendiente?.toLocaleString('es-AR')}
+                        </p>
+                      )}
                     </div>
-                  </div>
+                  </button>
                 ))}
                 {ventas.length === 0 && (
                   <p className="text-center text-gray-500 py-4">
@@ -301,7 +349,7 @@ const CuentasCorrientes = () => {
                       </p>
                     </div>
                     <p className="font-semibold text-green-700">
-                      -${pago.monto?.toLocaleString('es-AR')}
+                      -{formatMoney(pago.monto, 'ARS')}
                     </p>
                   </div>
                 ))}
