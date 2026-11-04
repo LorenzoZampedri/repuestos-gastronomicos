@@ -154,7 +154,7 @@ const Dashboard = () => {
       format: fmtArs,
       icon: ShoppingCart,
       color: 'bg-green-500',
-      link: '/ventas'
+      link: '/ventas?filtro=hoy'
     },
     {
       name: 'Clientes con Deuda',

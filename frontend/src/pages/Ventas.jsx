@@ -7,19 +7,37 @@ import Modal from '../components/Modal';
 import { formatMoney } from '../utils/format';
 
 const POR_PAGINA = 10;
+const FILTROS_VALIDOS = ['hoy', 'ayer', 'semana', 'mes', 'todo'];
+
+const leerFiltroInicial = () => {
+  const filtro = new URLSearchParams(window.location.search).get('filtro');
+  return FILTROS_VALIDOS.includes(filtro) ? filtro : 'mes';
+};
 
 const Ventas = () => {
   const [ventas, setVentas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
-  const [filtroActivo, setFiltroActivo] = useState('mes');
+  const [filtroInicial] = useState(leerFiltroInicial);
+  const [filtroActivo, setFiltroActivo] = useState(filtroInicial);
   const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [pagina, setPagina] = useState(1);
 
   useEffect(() => {
-    aplicarFiltro('mes');
+    aplicarFiltro(filtroInicial);
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('filtro')) {
+      params.delete('filtro');
+      const search = params.toString();
+      window.history.replaceState(
+        null,
+        '',
+        window.location.pathname + (search ? `?${search}` : '') + window.location.hash
+      );
+    }
   }, []);
 
   useEffect(() => {
