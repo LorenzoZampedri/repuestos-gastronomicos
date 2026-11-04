@@ -59,9 +59,10 @@ const Layout = () => {
             </div>
             <button 
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 rounded-lg hover:bg-gray-100"
+              className="lg:hidden p-1 rounded-lg hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              aria-label="Cerrar menú"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
 
@@ -99,10 +100,11 @@ const Layout = () => {
               </div>
               <button
                 onClick={handleLogout}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                 title="Cerrar sesión"
+                aria-label="Cerrar sesión"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -115,9 +117,11 @@ const Layout = () => {
         <header className="sticky top-0 z-30 h-16 bg-white border-b border-gray-200 flex items-center px-4 lg:px-6">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            aria-label="Abrir menú"
+            aria-expanded={sidebarOpen}
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="w-6 h-6" aria-hidden="true" />
           </button>
           
           <div className="flex-1" />

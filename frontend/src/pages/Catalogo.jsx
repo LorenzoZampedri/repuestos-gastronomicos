@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, ShoppingCart, Phone, Package } from 'lucide-react';
+import gsap from 'gsap';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useCurrency, MONEDAS, UMBRAL_DESCUENTO, PCT_DESCUENTO } from '../context/CurrencyContext';
+import EmptyState from '../components/EmptyState';
 
 const Catalogo = () => {
   const [productos, setProductos] = useState([]);
@@ -11,12 +13,28 @@ const Catalogo = () => {
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [categorias, setCategorias] = useState([]);
   const { addItem, items } = useCart();
-  const { moneda, setMoneda, formatPrice, hayCotizacion } = useCurrency();
+  const { moneda, setMoneda, formatPrice, hayCotizacion, getWhatsAppUrl } = useCurrency();
+  const gridRef = useRef(null);
 
   useEffect(() => {
     fetchProductos();
     fetchCategorias();
   }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    const cards = gridRef.current?.querySelectorAll('.producto-card');
+    if (!cards?.length) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const tween = gsap.fromTo(
+      cards,
+      { opacity: 0, y: 18 },
+      { opacity: 1, y: 0, duration: 0.45, stagger: 0.05, ease: 'power2.out', overwrite: true }
+    );
+
+    return () => tween.kill();
+  }, [loading, busqueda, filtroCategoria, productos.length]);
 
   const fetchProductos = async () => {
     try {
@@ -50,7 +68,7 @@ const Catalogo = () => {
   const contactarWhatsApp = (producto) => {
     const precio = formatPrice(producto.precioUsd ?? producto.precio);
     const mensaje = `Hola! Me interesa el producto: ${producto.nombre} - ${precio}`;
-    window.open(`https://wa.me/5491112345678?text=${encodeURIComponent(mensaje)}`, '_blank');
+    window.open(getWhatsAppUrl(mensaje), '_blank');
   };
 
   if (loading) {
@@ -81,6 +99,7 @@ const Catalogo = () => {
           <input
             type="text"
             placeholder="Buscar productos..."
+            aria-label="Buscar productos"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             className="input pl-10"
@@ -89,6 +108,7 @@ const Catalogo = () => {
         <select
           value={filtroCategoria}
           onChange={(e) => setFiltroCategoria(e.target.value)}
+          aria-label="Filtrar por categoría"
           className="input w-full sm:w-auto"
         >
           <option value="">Todas las categorías</option>
@@ -128,9 +148,9 @@ const Catalogo = () => {
       )}
 
       {/* Products Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div ref={gridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {productosFiltrados.map((producto) => (
-          <div key={producto.id} className="card group hover:shadow-lg transition-all flex flex-col">
+          <div key={producto.id} className="producto-card card group hover:shadow-lg transition-all flex flex-col">
             {/* Product Image */}
             <div className="aspect-square bg-gray-100 rounded-xl mb-4 overflow-hidden">
               {producto.imagenUrl ? (
@@ -178,18 +198,20 @@ const Catalogo = () => {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => addItem(producto)}
-                className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-medium text-sm bg-primary-800 text-white hover:bg-primary-700 transition-colors"
+                disabled={producto.stockActual <= 0}
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-medium text-sm bg-primary-800 text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <ShoppingCart className="w-4 h-4" />
-                {isInCart(producto.id) ? 'Agregar otro' : 'Agregar'}
+                <ShoppingCart className="w-4 h-4" aria-hidden="true" />
+                {producto.stockActual <= 0
+                  ? 'Sin stock'
+                  : isInCart(producto.id) ? 'Agregar otro' : 'Agregar'}
               </button>
               <button
                 onClick={() => contactarWhatsApp(producto)}
-                disabled={producto.stockActual <= 0}
-                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                title="Consultar por WhatsApp"
+                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+                aria-label={`Consultar por WhatsApp: ${producto.nombre}`}
               >
-                <Phone className="w-5 h-5" />
+                <Phone className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -198,15 +220,11 @@ const Catalogo = () => {
 
       {/* Empty State */}
       {productosFiltrados.length === 0 && (
-        <div className="text-center py-12">
-          <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No se encontraron productos
-          </h3>
-          <p className="text-gray-500">
-            Intentá con otros términos de búsqueda
-          </p>
-        </div>
+        <EmptyState
+          icon={Package}
+          title="No se encontraron productos"
+          description="Probá con otros términos de búsqueda o cambiá la categoría."
+        />
       )}
 
       {/* Contact CTA */}
@@ -218,12 +236,12 @@ const Catalogo = () => {
           Contactanos y te ayudamos a encontrar el repuesto que necesitás
         </p>
         <a
-          href="https://wa.me/5491112345678?text=Hola! Necesito ayuda con un repuesto"
+          href={getWhatsAppUrl('Hola! Necesito ayuda con un repuesto')}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-green-700 transition-colors"
+          className="btn-whatsapp px-6 py-3"
         >
-          <Phone className="w-5 h-5" />
+          <Phone className="w-5 h-5" aria-hidden="true" />
           Contactar por WhatsApp
         </a>
       </div>

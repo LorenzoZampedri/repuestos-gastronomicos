@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Package, 
@@ -10,16 +10,70 @@ import {
   ArrowDownRight
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import gsap from 'gsap';
 import api from '../services/api';
+import { formatMoney, formatNumber } from '../utils/format';
+
+const fmtArs = (value) => formatMoney(value, 'ARS');
+const fmtInt = (value) => formatNumber(Math.round(Number(value) || 0));
+
+const CountUp = ({ value, format }) => {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const target = Number(value) || 0;
+    const mm = gsap.matchMedia();
+
+    mm.add('(prefers-reduced-motion: reduce)', () => {
+      el.textContent = format(target);
+    });
+
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      const counter = { n: 0 };
+      const tween = gsap.to(counter, {
+        n: target,
+        duration: 0.9,
+        ease: 'power2.out',
+        onUpdate: () => { el.textContent = format(counter.n); },
+      });
+      return () => tween.kill();
+    });
+
+    return () => mm.revert();
+  }, [value, format]);
+
+  return <span ref={ref}>{format(value)}</span>;
+};
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [metricasActivas, setMetricasActivas] = useState(['monto']);
+  const statsGridRef = useRef(null);
 
   useEffect(() => {
     fetchStats();
   }, []);
+
+  useEffect(() => {
+    if (loading || !statsGridRef.current) return;
+    const cards = statsGridRef.current.querySelectorAll('.stat-card');
+    if (!cards.length) return;
+
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.fromTo(
+        cards,
+        { opacity: 0, y: 16 },
+        { opacity: 1, y: 0, duration: 0.4, stagger: 0.06, ease: 'power2.out', overwrite: true }
+      );
+    });
+
+    return () => mm.revert();
+  }, [loading]);
 
   const fetchStats = async () => {
     try {
@@ -44,13 +98,15 @@ const Dashboard = () => {
     {
       name: 'Productos',
       value: stats?.totalProductos || 0,
+      format: fmtInt,
       icon: Package,
       color: 'bg-blue-500',
       link: '/productos'
     },
     {
       name: 'Ventas del Día',
-      value: `$${(stats?.ventasDelDia || 0).toLocaleString('es-AR')}`,
+      value: stats?.ventasDelDia || 0,
+      format: fmtArs,
       icon: ShoppingCart,
       color: 'bg-green-500',
       link: '/ventas'
@@ -58,6 +114,7 @@ const Dashboard = () => {
     {
       name: 'Clientes con Deuda',
       value: stats?.clientesConDeuda || 0,
+      format: fmtInt,
       icon: Users,
       color: 'bg-orange-500',
       link: '/cuentas-corrientes'
@@ -65,6 +122,7 @@ const Dashboard = () => {
     {
       name: 'Stock Bajo',
       value: stats?.productosStockBajo || 0,
+      format: fmtInt,
       icon: AlertTriangle,
       color: 'bg-red-500',
       link: '/productos',
@@ -74,11 +132,8 @@ const Dashboard = () => {
 
   const chartData = stats?.ventasSemana || [];
 
-  const formatCurrency = (value) => `$${Number(value || 0).toLocaleString('es-AR')}`;
-  const formatNumber = (value) => Number(value || 0).toLocaleString('es-AR');
-
   const metricas = {
-    monto: { label: 'Monto', dataKey: 'monto', color: '#1e40af', format: formatCurrency },
+    monto: { label: 'Monto', dataKey: 'monto', color: '#1e40af', format: fmtArs },
     ventas: { label: 'Ventas', dataKey: 'cantidadVentas', color: '#16a34a', format: formatNumber },
     productos: { label: 'Productos', dataKey: 'cantidadProductos', color: '#ea580c', format: formatNumber },
   };
@@ -99,7 +154,7 @@ const Dashboard = () => {
   const usaDobleEje = hayMonto && hayConteo;
 
   const yAxisIdFor = (key) => (usaDobleEje && key !== 'monto' ? 'right' : 'left');
-  const leftFormatter = hayMonto ? formatCurrency : formatNumber;
+  const leftFormatter = hayMonto ? fmtArs : formatNumber;
 
   return (
     <div className="space-y-6">
@@ -110,20 +165,22 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div ref={statsGridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat) => (
           <Link
             key={stat.name}
             to={stat.link}
-            className={`card hover:shadow-md transition-shadow ${stat.alert ? 'ring-2 ring-red-500' : ''}`}
+            className={`stat-card card hover:shadow-md transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${stat.alert ? 'ring-2 ring-red-500' : ''}`}
           >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">{stat.name}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  <CountUp value={stat.value} format={stat.format} />
+                </p>
               </div>
               <div className={`w-12 h-12 ${stat.color} rounded-xl flex items-center justify-center`}>
-                <stat.icon className="w-6 h-6 text-white" />
+                <stat.icon className="w-6 h-6 text-white" aria-hidden="true" />
               </div>
             </div>
           </Link>

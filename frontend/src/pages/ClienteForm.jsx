@@ -97,8 +97,9 @@ const ClienteForm = () => {
       <form onSubmit={handleSubmit} className="card space-y-6">
         {/* Nombre */}
         <div>
-          <label className="label">Nombre / Razón Social *</label>
+          <label htmlFor="cliente-nombre" className="label">Nombre / Razón Social *</label>
           <input
+            id="cliente-nombre"
             type="text"
             name="nombre"
             value={formData.nombre}
@@ -112,8 +113,9 @@ const ClienteForm = () => {
         {/* CUIT y Condición IVA */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="label">CUIT</label>
+            <label htmlFor="cliente-cuit" className="label">CUIT</label>
             <input
+              id="cliente-cuit"
               type="text"
               name="cuit"
               value={formData.cuit}
@@ -123,8 +125,9 @@ const ClienteForm = () => {
             />
           </div>
           <div>
-            <label className="label">Condición IVA</label>
+            <label htmlFor="cliente-iva" className="label">Condición IVA</label>
             <select
+              id="cliente-iva"
               name="condicionIva"
               value={formData.condicionIva}
               onChange={handleChange}
@@ -132,7 +135,7 @@ const ClienteForm = () => {
             >
               <option value="CONSUMIDOR_FINAL">Consumidor Final</option>
               <option value="RESPONSABLE_INSCRIPTO">Responsable Inscripto</option>
-              <option value="MONOTRIBUTUTO">Monotributo</option>
+              <option value="MONOTRIBUTISTA">Monotributo</option>
               <option value="EXENTO">Exento</option>
             </select>
           </div>
@@ -141,8 +144,9 @@ const ClienteForm = () => {
         {/* Contacto */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="label">Teléfono</label>
+            <label htmlFor="cliente-telefono" className="label">Teléfono</label>
             <input
+              id="cliente-telefono"
               type="tel"
               name="telefono"
               value={formData.telefono}
@@ -152,8 +156,9 @@ const ClienteForm = () => {
             />
           </div>
           <div>
-            <label className="label">Email</label>
+            <label htmlFor="cliente-email" className="label">Email</label>
             <input
+              id="cliente-email"
               type="email"
               name="email"
               value={formData.email}
@@ -166,8 +171,9 @@ const ClienteForm = () => {
 
         {/* Dirección */}
         <div>
-          <label className="label">Dirección</label>
+          <label htmlFor="cliente-direccion" className="label">Dirección</label>
           <input
+            id="cliente-direccion"
             type="text"
             name="direccion"
             value={formData.direccion}
@@ -179,8 +185,9 @@ const ClienteForm = () => {
 
         {/* Observaciones */}
         <div>
-          <label className="label">Observaciones</label>
+          <label htmlFor="cliente-observaciones" className="label">Observaciones</label>
           <textarea
+            id="cliente-observaciones"
             name="observaciones"
             value={formData.observaciones}
             onChange={handleChange}

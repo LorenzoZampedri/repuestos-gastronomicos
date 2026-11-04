@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Search, Plus, Eye, Calendar, Filter, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import Modal from '../components/Modal';
+import { formatMoney } from '../utils/format';
 
 const POR_PAGINA = 10;
 
@@ -13,6 +15,7 @@ const Ventas = () => {
   const [fechaFin, setFechaFin] = useState('');
   const [filtroActivo, setFiltroActivo] = useState('mes');
   const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
+  const [modalAbierto, setModalAbierto] = useState(false);
   const [pagina, setPagina] = useState(1);
 
   useEffect(() => {
@@ -128,7 +131,7 @@ const Ventas = () => {
       await api.put(`/api/ventas/${id}/anular`);
       toast.success('Venta anulada');
       fetchVentas();
-      if (ventaSeleccionada?.id === id) setVentaSeleccionada(null);
+      if (ventaSeleccionada?.id === id) setModalAbierto(false);
     } catch (error) {
       toast.error('Error al anular venta');
     }
@@ -185,7 +188,7 @@ const Ventas = () => {
           <div className="text-right">
             <p className="text-sm text-gray-500">Total del período</p>
             <p className="text-2xl font-bold text-primary-800">
-              ${totalVentas.toLocaleString('es-AR')}
+              {formatMoney(totalVentas, 'ARS')}
             </p>
           </div>
         </div>
@@ -236,7 +239,7 @@ const Ventas = () => {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <span className="font-semibold text-gray-900">
-                        ${venta.total?.toLocaleString('es-AR')}
+                        {formatMoney(venta.total, 'ARS')}
                       </span>
                     </td>
                     <td className="py-3 px-4">
@@ -245,10 +248,11 @@ const Ventas = () => {
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => setVentaSeleccionada(venta)}
-                          className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          onClick={() => { setVentaSeleccionada(venta); setModalAbierto(true); }}
+                          className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                          aria-label={`Ver detalle de la venta #${venta.id}`}
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-4 h-4" aria-hidden="true" />
                         </button>
                         {venta.estado !== 'ANULADA' && (
                           <button
@@ -322,84 +326,89 @@ const Ventas = () => {
       </div>
 
       {/* Sale Detail Modal */}
-      {ventaSeleccionada && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Detalle de Venta #{ventaSeleccionada.id}</h3>
-                <button
-                  onClick={() => setVentaSeleccionada(null)}
-                  className="p-2 text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
+      <Modal
+        open={modalAbierto && !!ventaSeleccionada}
+        onClose={() => setModalAbierto(false)}
+        labelledBy="venta-detalle-titulo"
+      >
+        {ventaSeleccionada && (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 id="venta-detalle-titulo" className="text-lg font-semibold">
+                Detalle de Venta #{ventaSeleccionada.id}
+              </h3>
+              <button
+                onClick={() => setModalAbierto(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                aria-label="Cerrar detalle de venta"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Fecha</p>
+                  <p className="font-medium">
+                    {new Date(ventaSeleccionada.fecha).toLocaleString('es-AR')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Estado</p>
+                  {getEstadoBadge(ventaSeleccionada.estado)}
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Cliente</p>
+                  <p className="font-medium">
+                    {ventaSeleccionada.cliente?.nombre || 'Anónimo'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Vendedor</p>
+                  <p className="font-medium">
+                    {ventaSeleccionada.usuario?.nombre}
+                  </p>
+                </div>
               </div>
-              
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Fecha</p>
-                    <p className="font-medium">
-                      {new Date(ventaSeleccionada.fecha).toLocaleString('es-AR')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Estado</p>
-                    {getEstadoBadge(ventaSeleccionada.estado)}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Cliente</p>
-                    <p className="font-medium">
-                      {ventaSeleccionada.cliente?.nombre || 'Anónimo'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Vendedor</p>
-                    <p className="font-medium">
-                      {ventaSeleccionada.usuario?.nombre}
-                    </p>
+
+              {ventaSeleccionada.detalles && ventaSeleccionada.detalles.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Productos</p>
+                  <div className="space-y-2">
+                    {ventaSeleccionada.detalles.map((detalle, idx) => (
+                      <div key={idx} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
+                        <span>{detalle.producto?.nombre} x{detalle.cantidad}</span>
+                        <span className="font-medium">
+                          {formatMoney(detalle.subtotal, 'ARS')}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                
-                {ventaSeleccionada.detalles && ventaSeleccionada.detalles.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">Productos</p>
-                    <div className="space-y-2">
-                      {ventaSeleccionada.detalles.map((detalle, idx) => (
-                        <div key={idx} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
-                          <span>{detalle.producto?.nombre} x{detalle.cantidad}</span>
-                          <span className="font-medium">
-                            ${detalle.subtotal?.toLocaleString('es-AR')}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+              )}
+
+              <div className="border-t pt-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-bold">Total</span>
+                  <span className="text-2xl font-bold text-primary-800">
+                    {formatMoney(ventaSeleccionada.total, 'ARS')}
+                  </span>
+                </div>
+                {ventaSeleccionada.estado !== 'ANULADA' && (
+                  <button
+                    onClick={() => anularVenta(ventaSeleccionada.id)}
+                    className="mt-4 w-full btn-danger flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" aria-hidden="true" />
+                    Anular venta
+                  </button>
                 )}
-                
-                <div className="border-t pt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold">Total</span>
-                    <span className="text-2xl font-bold text-primary-800">
-                      ${ventaSeleccionada.total?.toLocaleString('es-AR')}
-                    </span>
-                  </div>
-                  {ventaSeleccionada.estado !== 'ANULADA' && (
-                    <button
-                      onClick={() => anularVenta(ventaSeleccionada.id)}
-                      className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Anular venta
-                    </button>
-                  )}
-                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 };

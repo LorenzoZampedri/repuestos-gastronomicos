@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { formatMoney } from '../utils/format';
 
 const CuentasCorrientes = () => {
   const [clientes, setClientes] = useState([]);
@@ -122,7 +123,7 @@ const CuentasCorrientes = () => {
             <div>
               <p className="text-sm text-gray-500">Total adeudado</p>
               <p className="text-2xl font-bold text-orange-600">
-                ${totalDeuda.toLocaleString('es-AR')}
+                {formatMoney(totalDeuda, 'ARS')}
               </p>
             </div>
           </div>
@@ -147,6 +148,7 @@ const CuentasCorrientes = () => {
           <input
             type="text"
             placeholder="Buscar cliente..."
+            aria-label="Buscar cliente"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             className="input pl-10"
@@ -177,7 +179,7 @@ const CuentasCorrientes = () => {
                     </div>
                     <span className={`font-semibold ${cliente.saldoCorriente > 0 ? 'text-red-600' : 'text-green-600'}`}>
                       {cliente.saldoCorriente > 0
-                        ? `$${cliente.saldoCorriente.toLocaleString('es-AR')}`
+                        ? formatMoney(cliente.saldoCorriente, 'ARS')
                         : 'Al día'}
                     </span>
                   </div>
@@ -206,7 +208,7 @@ const CuentasCorrientes = () => {
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Saldo pendiente</p>
                   <p className="text-2xl font-bold text-red-600">
-                    ${clienteSeleccionado.saldoCorriente?.toLocaleString('es-AR')}
+                    {formatMoney(clienteSeleccionado.saldoCorriente, 'ARS')}
                   </p>
                   {clienteSeleccionado.saldoCorriente > 0 && <button
                     onClick={() => {
@@ -249,10 +251,11 @@ const CuentasCorrientes = () => {
               <h4 className="font-medium text-gray-700 mb-3">Historial de ventas</h4>
               <div className="space-y-3">
                 {ventas.map((venta) => (
-                    <div 
-                    key={venta.id} 
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => window.location.href = `/ventas#venta-${venta.id}`}
+                  <button
+                    key={venta.id}
+                    type="button"
+                    className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    onClick={() => { window.location.href = `/ventas#venta-${venta.id}`; }}
                     title="Ver venta en historial"
                   >
                     <div>
@@ -265,7 +268,7 @@ const CuentasCorrientes = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-gray-900">
-                        ${venta.total?.toLocaleString('es-AR')}
+                        {formatMoney(venta.total, 'ARS')}
                       </p>
                       <span className={`text-xs px-2 py-1 rounded-full ${
                         venta.estado === 'PAGADA' 
@@ -275,7 +278,7 @@ const CuentasCorrientes = () => {
                         {venta.estado}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 ))}
                 {ventas.length === 0 && (
                   <p className="text-center text-gray-500 py-4">
@@ -301,7 +304,7 @@ const CuentasCorrientes = () => {
                       </p>
                     </div>
                     <p className="font-semibold text-green-700">
-                      -${pago.monto?.toLocaleString('es-AR')}
+                      -{formatMoney(pago.monto, 'ARS')}
                     </p>
                   </div>
                 ))}

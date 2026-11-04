@@ -4,6 +4,8 @@ import { Search, Plus, Edit2, Trash2, Package, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import EmptyState from '../components/EmptyState';
+import { formatMoney } from '../utils/format';
 
 const Productos = () => {
   const [productos, setProductos] = useState([]);
@@ -102,7 +104,8 @@ const Productos = () => {
               placeholder="Buscar por nombre, código o descripción..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleBuscar()}
+              onKeyDown={(e) => e.key === 'Enter' && handleBuscar()}
+              aria-label="Buscar productos"
               className="input pl-10"
             />
           </div>
@@ -110,6 +113,7 @@ const Productos = () => {
             <select
               value={filtroCategoria}
               onChange={(e) => setFiltroCategoria(e.target.value)}
+              aria-label="Filtrar por categoría"
               className="input w-auto"
             >
               <option value="">Todas las categorías</option>
@@ -167,12 +171,12 @@ const Productos = () => {
                   <td className="py-3 px-4 text-right">
                     <span className="font-semibold text-gray-900">
                       {producto.precioUsd > 0
-                        ? `U$S ${Number(producto.precioUsd).toLocaleString('es-AR')}`
+                        ? formatMoney(producto.precioUsd, 'USD')
                         : <span className="text-sm text-gray-400 font-normal">Sin precio USD</span>}
                     </span>
                     {producto.precioUsd > 0 && producto.precio > 0 && (
                       <p className="text-xs text-gray-500 mt-0.5">
-                        ${Number(producto.precio).toLocaleString('es-AR')}
+                        {formatMoney(producto.precio, 'ARS')}
                       </p>
                     )}
                   </td>
@@ -191,15 +195,17 @@ const Productos = () => {
                         <>
                           <Link
                             to={`/productos/${producto.id}`}
-                            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                            aria-label={`Editar ${producto.nombre}`}
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="w-4 h-4" aria-hidden="true" />
                           </Link>
                           <button
                             onClick={() => handleEliminar(producto.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                            aria-label={`Eliminar ${producto.nombre}`}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" aria-hidden="true" />
                           </button>
                         </>
                       )}
@@ -209,8 +215,12 @@ const Productos = () => {
               ))}
               {productosFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="py-12 text-center text-gray-500">
-                    No se encontraron productos
+                  <td colSpan="6">
+                    <EmptyState
+                      icon={Package}
+                      title="No se encontraron productos"
+                      description="Probá con otro término de búsqueda o cambiá la categoría."
+                    />
                   </td>
                 </tr>
               )}

@@ -128,8 +128,9 @@ const ProductoForm = () => {
       <form onSubmit={handleSubmit} className="card space-y-6">
         {/* Nombre */}
         <div>
-          <label className="label">Nombre del producto *</label>
+          <label htmlFor="producto-nombre" className="label">Nombre del producto *</label>
           <input
+            id="producto-nombre"
             type="text"
             name="nombre"
             value={formData.nombre}
@@ -143,8 +144,9 @@ const ProductoForm = () => {
         {/* Código de barras y Categoría */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="label">Código de barras</label>
+            <label htmlFor="producto-codigo" className="label">Código de barras</label>
             <input
+              id="producto-codigo"
               type="text"
               name="codigoBarras"
               value={formData.codigoBarras}
@@ -154,8 +156,9 @@ const ProductoForm = () => {
             />
           </div>
           <div>
-            <label className="label">Categoría</label>
+            <label htmlFor="producto-categoria" className="label">Categoría</label>
             <select
+              id="producto-categoria"
               name="categoriaId"
               value={formData.categoriaId}
               onChange={handleChange}
@@ -171,8 +174,9 @@ const ProductoForm = () => {
 
         {/* Descripción */}
         <div>
-          <label className="label">Descripción</label>
+          <label htmlFor="producto-descripcion" className="label">Descripción</label>
           <textarea
+            id="producto-descripcion"
             name="descripcion"
             value={formData.descripcion}
             onChange={handleChange}
@@ -184,8 +188,9 @@ const ProductoForm = () => {
         {/* Precio y Stock */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="label">Precio (USD) *</label>
+            <label htmlFor="producto-precio" className="label">Precio (USD) *</label>
             <input
+              id="producto-precio"
               type="number"
               name="precioUsd"
               value={formData.precioUsd}
@@ -201,8 +206,9 @@ const ProductoForm = () => {
             </p>
           </div>
           <div>
-            <label className="label">Stock actual *</label>
+            <label htmlFor="producto-stock" className="label">Stock actual *</label>
             <input
+              id="producto-stock"
               type="number"
               name="stockActual"
               value={formData.stockActual}
@@ -214,8 +220,9 @@ const ProductoForm = () => {
             />
           </div>
           <div>
-            <label className="label">Stock mínimo</label>
+            <label htmlFor="producto-stock-minimo" className="label">Stock mínimo</label>
             <input
+              id="producto-stock-minimo"
               type="number"
               name="stockMinimo"
               value={formData.stockMinimo}
@@ -229,8 +236,9 @@ const ProductoForm = () => {
 
         {/* URL de imagen */}
         <div>
-          <label className="label">URL de imagen (opcional)</label>
+          <label htmlFor="producto-imagen" className="label">URL de imagen (opcional)</label>
           <input
+            id="producto-imagen"
             type="url"
             name="imagenUrl"
             value={formData.imagenUrl}
@@ -247,7 +255,7 @@ const ProductoForm = () => {
             <img 
               src={formData.imagenUrl} 
               alt="Preview" 
-              className="w-32 h-32 object-cover rounded-lg"
+              className="w-32 h-32 object-contain rounded-lg"
               onError={(e) => e.target.style.display = 'none'}
             />
           </div>
