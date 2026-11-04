@@ -101,30 +101,137 @@ public class VentaService {
     @Transactional
     public Pago registrarPago(Long ventaId, Pago pago) {
         Venta venta = buscarPorId(ventaId);
+        // Normalizar el monto a escala 2 ANTES de cualquier cálculo
+        if (pago.getMonto() != null) {
+            pago.setMonto(pago.getMonto().setScale(2, RoundingMode.HALF_UP));
+        }
+        // Valida monto, estado de la venta y saldo pendiente; actualiza el estado (PARCIAL/PAGADA).
+        // El saldo pagado se calcula con una query ANTES de persistir el pago nuevo, para no
+        // contar dos veces el pago recién insertado (bug de doble conteo).
+        aplicarPagoAVenta(venta, pago.getMonto());
         pago.setVenta(venta);
         pago.setCliente(venta.getCliente());
         pago.setFecha(LocalDateTime.now());
-        
+
         Pago pagoGuardado = pagoRepository.save(pago);
-        
-        // Actualizar estado de la venta
-        BigDecimal montoPagado = venta.getMontoPagado().add(pago.getMonto());
-        if (montoPagado.compareTo(venta.getTotal()) >= 0) {
-            venta.setEstado(Venta.EstadoVenta.PAGADA);
-        } else {
-            venta.setEstado(Venta.EstadoVenta.PARCIAL);
-        }
-        ventaRepository.save(venta);
-        
-        // Actualizar saldo del cliente
+
+        // Actualizar saldo del cliente exactamente una vez por el monto pagado
         if (venta.getCliente() != null) {
             Cliente cliente = venta.getCliente();
-                BigDecimal nuevoSaldo = cliente.getSaldoCorriente().subtract(pago.getMonto());
-            cliente.setSaldoCorriente(nuevoSaldo);
+            BigDecimal saldoActual = cliente.getSaldoCorriente() == null
+                    ? BigDecimal.ZERO
+                    : cliente.getSaldoCorriente();
+            cliente.setSaldoCorriente(saldoActual.subtract(pago.getMonto()));
             clienteRepository.save(cliente);
         }
-        
+
         return pagoGuardado;
+    }
+
+    /**
+     * Registra un pago de cuenta corriente: reparte el monto entre las ventas abiertas del
+     * cliente (PENDIENTE/PARCIAL) de más antigua a más reciente. El sobrante (deuda manual
+     * cargada con tipo "sumar") se registra como pago sin venta. El saldoCorriente del
+     * cliente se descuenta exactamente una vez por el monto total del pago.
+     */
+    @Transactional
+    public void registrarPagoCuentaCorriente(Long clienteId, BigDecimal monto, String metodoPago) {
+        if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El monto debe ser mayor a cero");
+        }
+        BigDecimal montoPago = monto.setScale(2, RoundingMode.HALF_UP);
+
+        Cliente cliente = clienteRepository.findById(clienteId)
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+        BigDecimal saldoActual = cliente.getSaldoCorriente() == null
+                ? BigDecimal.ZERO
+                : cliente.getSaldoCorriente();
+        if (montoPago.compareTo(saldoActual) > 0) {
+            throw new IllegalArgumentException("El pago no puede superar la deuda pendiente");
+        }
+
+        Pago.MetodoPago metodo = parseMetodoPago(metodoPago);
+        BigDecimal restante = montoPago;
+
+        List<Venta> ventasAbiertas = ventaRepository.findVentasAbiertasPorCliente(clienteId);
+        for (Venta venta : ventasAbiertas) {
+            if (restante.compareTo(BigDecimal.ZERO) <= 0) {
+                break;
+            }
+            BigDecimal saldoPendiente = venta.getTotal().subtract(pagadoPrevio(venta.getId()));
+            if (saldoPendiente.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            BigDecimal aplicar = restante.min(saldoPendiente);
+            aplicarPagoAVenta(venta, aplicar);
+            pagoRepository.save(Pago.builder()
+                    .venta(venta)
+                    .cliente(cliente)
+                    .monto(aplicar)
+                    .metodoPago(metodo)
+                    .referencia("Pago de cuenta corriente")
+                    .fecha(LocalDateTime.now())
+                    .build());
+            restante = restante.subtract(aplicar);
+        }
+
+        // Sobra monto porque el saldo incluye deuda manual sin venta asociada
+        if (restante.compareTo(BigDecimal.ZERO) > 0) {
+            pagoRepository.save(Pago.builder()
+                    .cliente(cliente)
+                    .monto(restante)
+                    .metodoPago(metodo)
+                    .referencia("Pago de cuenta corriente")
+                    .fecha(LocalDateTime.now())
+                    .build());
+        }
+
+        cliente.setSaldoCorriente(saldoActual.subtract(montoPago));
+        clienteRepository.save(cliente);
+    }
+
+    /**
+     * Aplica un monto a una venta: valida que pueda recibir el pago y actualiza su estado.
+     * Debe invocarse ANTES de persistir el Pago correspondiente.
+     */
+    private void aplicarPagoAVenta(Venta venta, BigDecimal monto) {
+        if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El monto del pago debe ser mayor a cero");
+        }
+        if (venta.getEstado() == Venta.EstadoVenta.ANULADA) {
+            throw new IllegalArgumentException("No se pueden registrar pagos sobre una venta anulada");
+        }
+        if (venta.getEstado() == Venta.EstadoVenta.PAGADA) {
+            throw new IllegalArgumentException("La venta ya está pagada");
+        }
+        BigDecimal pagadoPrevio = pagadoPrevio(venta.getId());
+        BigDecimal saldoPendiente = venta.getTotal().subtract(pagadoPrevio);
+        if (monto.compareTo(saldoPendiente) > 0) {
+            throw new IllegalArgumentException(
+                    "El pago supera el saldo pendiente de la venta #" + venta.getId()
+                            + " (saldo pendiente: " + saldoPendiente + ")");
+        }
+        BigDecimal nuevoPagado = pagadoPrevio.add(monto);
+        venta.setEstado(nuevoPagado.compareTo(venta.getTotal()) >= 0
+                ? Venta.EstadoVenta.PAGADA
+                : Venta.EstadoVenta.PARCIAL);
+    }
+
+    /** Monto ya pagado en una venta según la tabla de pagos (no usa la colección lazy). */
+    private BigDecimal pagadoPrevio(Long ventaId) {
+        BigDecimal suma = pagoRepository.sumMontoPagadoPorVenta(ventaId);
+        return (suma == null ? BigDecimal.ZERO : suma).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private Pago.MetodoPago parseMetodoPago(String valor) {
+        if (valor == null || valor.isBlank()) {
+            return Pago.MetodoPago.EFECTIVO;
+        }
+        try {
+            return Pago.MetodoPago.valueOf(valor);
+        } catch (IllegalArgumentException e) {
+            return Pago.MetodoPago.EFECTIVO;
+        }
     }
     
     @Transactional

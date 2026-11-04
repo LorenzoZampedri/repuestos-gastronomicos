@@ -396,6 +396,22 @@ const Ventas = () => {
                   </span>
                 </div>
                 {ventaSeleccionada.estado !== 'ANULADA' && (
+                  <div className="mt-2 space-y-1 text-sm text-gray-600">
+                    <div className="flex justify-between">
+                      <span>Pagado</span>
+                      <span className="font-medium text-green-700">
+                        {formatMoney(ventaSeleccionada.montoPagado, 'ARS')}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Saldo pendiente</span>
+                      <span className="font-medium text-orange-700">
+                        {formatMoney(ventaSeleccionada.saldoPendiente, 'ARS')}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {ventaSeleccionada.estado !== 'ANULADA' && (
                   <button
                     onClick={() => anularVenta(ventaSeleccionada.id)}
                     className="mt-4 w-full btn-danger flex items-center justify-center gap-2"
