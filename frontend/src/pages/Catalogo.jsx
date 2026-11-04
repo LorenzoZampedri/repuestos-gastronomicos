@@ -205,7 +205,7 @@ const Catalogo = () => {
       {/* Products Grid */}
       <div ref={gridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {productosFiltrados.map((producto) => (
-          <div key={producto.id} className="producto-card card group hover:shadow-lg transition-all flex flex-col">
+          <div key={producto.id} className="producto-card card group hover:shadow-lg transition-shadow duration-300 flex flex-col">
             {/* Product Image */}
             <div className="aspect-square bg-gray-100 rounded-xl mb-4 overflow-hidden">
               {producto.imagenUrl ? (
