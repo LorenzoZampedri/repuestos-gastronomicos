@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Phone, ShoppingCart, X, Trash2, MessageCircle, Plus, Minus } from 'lucide-react';
-import gsap from 'gsap';
+import { gsap, prefersReducedMotion } from '../lib/animations';
 import { useCart } from '../context/CartContext';
 import { useCurrency, PCT_DESCUENTO, UMBRAL_DESCUENTO } from '../context/CurrencyContext';
 import { formatMoney, normalizePhone } from '../utils/format';
+import PageTransition from './PageTransition';
 
 const CartDrawer = ({ isOpen, onClose }) => {
   const {
@@ -32,20 +33,19 @@ const CartDrawer = ({ isOpen, onClose }) => {
     const panel = panelRef.current;
     if (!overlay || !panel) return;
 
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion) {
+    if (prefersReducedMotion()) {
       gsap.set(overlay, { opacity: isOpen ? 1 : 0 });
       gsap.set(panel, { xPercent: isOpen ? 0 : 100 });
       return;
     }
 
-    const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
     if (isOpen) {
-      tl.to(overlay, { opacity: 1, duration: 0.25 }, 0)
-        .to(panel, { xPercent: 0, duration: 0.35 }, 0);
+      tl.to(overlay, { opacity: 1, duration: 0.3 }, 0)
+        .to(panel, { xPercent: 0, duration: 0.4 }, 0);
     } else {
-      tl.to(overlay, { opacity: 0, duration: 0.2 }, 0)
-        .to(panel, { xPercent: 100, duration: 0.3 }, 0);
+      tl.to(overlay, { opacity: 0, duration: 0.22 }, 0)
+        .to(panel, { xPercent: 100, duration: 0.32 }, 0);
     }
 
     return () => tl.kill();
@@ -252,7 +252,7 @@ const PublicLayout = ({ children }) => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
-        {children}
+        <PageTransition>{children}</PageTransition>
       </main>
 
       <footer className="bg-white border-t border-gray-200">

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Search, ShoppingCart, Phone, Package } from 'lucide-react';
-import gsap from 'gsap';
+import { gsap, ScrollTrigger, prefersReducedMotion } from '../lib/animations';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useCurrency, MONEDAS, UMBRAL_DESCUENTO, PCT_DESCUENTO } from '../context/CurrencyContext';
@@ -15,25 +15,80 @@ const Catalogo = () => {
   const { addItem, items } = useCart();
   const { moneda, setMoneda, formatPrice, hayCotizacion, getWhatsAppUrl } = useCurrency();
   const gridRef = useRef(null);
+  const heroRef = useRef(null);
+  const ctaRef = useRef(null);
 
   useEffect(() => {
     fetchProductos();
     fetchCategorias();
   }, []);
 
-  useEffect(() => {
-    if (loading) return;
-    const cards = gridRef.current?.querySelectorAll('.producto-card');
-    if (!cards?.length) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  useLayoutEffect(() => {
+    if (loading || prefersReducedMotion()) return;
 
-    const tween = gsap.fromTo(
-      cards,
-      { opacity: 0, y: 18 },
-      { opacity: 1, y: 0, duration: 0.45, stagger: 0.05, ease: 'power2.out', overwrite: true }
-    );
+    const hero = heroRef.current;
+    const cta = ctaRef.current;
+    const tweens = [];
+    const triggers = [];
 
-    return () => tween.kill();
+    if (hero) {
+      tweens.push(
+        gsap.from(Array.from(hero.children), {
+          opacity: 0,
+          y: 24,
+          duration: 0.6,
+          stagger: 0.12,
+          ease: 'power3.out',
+        })
+      );
+    }
+
+    if (cta) {
+      const ctaTween = gsap.from(cta, {
+        opacity: 0,
+        y: 24,
+        duration: 0.5,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: cta, start: 'top 90%', once: true },
+      });
+      tweens.push(ctaTween);
+      if (ctaTween.scrollTrigger) triggers.push(ctaTween.scrollTrigger);
+    }
+
+    ScrollTrigger.refresh();
+
+    return () => {
+      tweens.forEach((tween) => tween.kill());
+      triggers.forEach((trigger) => trigger.kill());
+    };
+  }, [loading]);
+
+  useLayoutEffect(() => {
+    if (loading || prefersReducedMotion()) return;
+
+    const cards = gridRef.current
+      ? Array.from(gridRef.current.querySelectorAll('.producto-card'))
+      : [];
+    if (!cards.length) return;
+
+    gsap.set(cards, { opacity: 0, y: 28 });
+    const triggers = ScrollTrigger.batch(cards, {
+      start: 'top 88%',
+      once: true,
+      onEnter: (batch) =>
+        gsap.to(batch, {
+          opacity: 1,
+          y: 0,
+          duration: 0.55,
+          stagger: 0.08,
+          ease: 'power3.out',
+          overwrite: true,
+        }),
+    });
+
+    ScrollTrigger.refresh();
+
+    return () => triggers.forEach((trigger) => trigger.kill());
   }, [loading, busqueda, filtroCategoria, productos.length]);
 
   const fetchProductos = async () => {
@@ -82,7 +137,7 @@ const Catalogo = () => {
   return (
     <div className="space-y-6">
       {/* Hero Section */}
-      <div className="text-center py-8">
+      <div ref={heroRef} className="text-center py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Catálogo de Productos
         </h1>
@@ -228,7 +283,7 @@ const Catalogo = () => {
       )}
 
       {/* Contact CTA */}
-      <div className="bg-primary-50 rounded-2xl p-8 text-center mt-8">
+      <div ref={ctaRef} className="bg-primary-50 rounded-2xl p-8 text-center mt-8">
         <h3 className="text-xl font-semibold text-gray-900 mb-2">
           ¿No encontrás lo que buscás?
         </h3>

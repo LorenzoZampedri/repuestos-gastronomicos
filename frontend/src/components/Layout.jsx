@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import PageTransition from './PageTransition';
 import { 
   LayoutDashboard, 
   Package, 
@@ -139,7 +140,9 @@ const Layout = () => {
 
         {/* Page content */}
         <main className="p-4 lg:p-6">
-          <Outlet />
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
         </main>
       </div>
     </div>

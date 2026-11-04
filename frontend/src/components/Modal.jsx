@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import gsap from 'gsap';
+import { gsap, prefersReducedMotion } from '../lib/animations';
 
 const Modal = ({ open, onClose, labelledBy, children }) => {
   const overlayRef = useRef(null);
@@ -16,28 +16,27 @@ const Modal = ({ open, onClose, labelledBy, children }) => {
     const panel = panelRef.current;
     if (!overlay || !panel) return;
 
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion) {
+    if (prefersReducedMotion()) {
       gsap.set(overlay, { opacity: open ? 1 : 0 });
       gsap.set(panel, { opacity: open ? 1 : 0, scale: 1, y: 0 });
       if (!open) setMounted(false);
       return;
     }
 
-    const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
     if (open) {
-      tl.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.2 }, 0)
+      tl.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.25 }, 0)
         .fromTo(
           panel,
-          { opacity: 0, scale: 0.96, y: 8 },
-          { opacity: 1, scale: 1, y: 0, duration: 0.28 },
+          { opacity: 0, scale: 0.94, y: 16 },
+          { opacity: 1, scale: 1, y: 0, duration: 0.32 },
           0
         );
     } else {
-      tl.to(overlay, { opacity: 0, duration: 0.18 }, 0)
+      tl.to(overlay, { opacity: 0, duration: 0.2 }, 0)
         .to(
           panel,
-          { opacity: 0, scale: 0.97, y: 8, duration: 0.2, onComplete: () => setMounted(false) },
+          { opacity: 0, scale: 0.96, y: 10, duration: 0.24, onComplete: () => setMounted(false) },
           0
         );
     }

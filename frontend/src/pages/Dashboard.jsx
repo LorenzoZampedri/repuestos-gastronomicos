@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Package, 
@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import gsap from 'gsap';
+import { gsap, prefersReducedMotion } from '../lib/animations';
 import api from '../services/api';
 import { formatMoney, formatNumber } from '../utils/format';
 
@@ -21,32 +21,29 @@ const fmtInt = (value) => formatNumber(Math.round(Number(value) || 0));
 const CountUp = ({ value, format }) => {
   const ref = useRef(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
 
     const target = Number(value) || 0;
-    const mm = gsap.matchMedia();
-
-    mm.add('(prefers-reduced-motion: reduce)', () => {
+    if (prefersReducedMotion()) {
       el.textContent = format(target);
+      return;
+    }
+
+    el.textContent = format(0);
+    const counter = { n: 0 };
+    const tween = gsap.to(counter, {
+      n: target,
+      duration: 1.1,
+      ease: 'power2.out',
+      onUpdate: () => { el.textContent = format(counter.n); },
     });
 
-    mm.add('(prefers-reduced-motion: no-preference)', () => {
-      const counter = { n: 0 };
-      const tween = gsap.to(counter, {
-        n: target,
-        duration: 0.9,
-        ease: 'power2.out',
-        onUpdate: () => { el.textContent = format(counter.n); },
-      });
-      return () => tween.kill();
-    });
-
-    return () => mm.revert();
+    return () => tween.kill();
   }, [value, format]);
 
-  return <span ref={ref}>{format(value)}</span>;
+  return <span ref={ref} />;
 };
 
 const Dashboard = () => {
@@ -54,6 +51,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [metricasActivas, setMetricasActivas] = useState(['monto']);
   const statsGridRef = useRef(null);
+  const dashboardRef = useRef(null);
   const [dias, setDias] = useState(7);
   const [serie, setSerie] = useState([]);
   const [totalesPeriodo, setTotalesPeriodo] = useState(null);
@@ -64,19 +62,32 @@ const Dashboard = () => {
     fetchStats();
   }, []);
 
-  useEffect(() => {
-    if (loading || !statsGridRef.current) return;
-    const cards = statsGridRef.current.querySelectorAll('.stat-card');
-    if (!cards.length) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  useLayoutEffect(() => {
+    if (loading || prefersReducedMotion()) return;
 
-    const tween = gsap.fromTo(
-      cards,
-      { opacity: 0, y: 20 },
-      { opacity: 1, y: 0, duration: 0.55, stagger: 0.08, ease: 'power3.out', overwrite: true }
-    );
+    const cards = statsGridRef.current?.querySelectorAll('.stat-card');
+    const reveals = dashboardRef.current?.querySelectorAll('.dashboard-reveal');
+    const tl = gsap.timeline();
 
-    return () => tween.kill();
+    if (cards?.length) {
+      tl.fromTo(
+        cards,
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.55, stagger: 0.08, ease: 'power3.out', overwrite: true },
+        0
+      );
+    }
+
+    if (reveals?.length) {
+      tl.fromTo(
+        reveals,
+        { opacity: 0, y: 24 },
+        { opacity: 1, y: 0, duration: 0.55, stagger: 0.1, ease: 'power3.out', overwrite: true },
+        0.15
+      );
+    }
+
+    return () => tl.kill();
   }, [loading]);
 
   useEffect(() => {
@@ -191,7 +202,7 @@ const Dashboard = () => {
   const leftFormatter = hayMonto ? fmtArs : formatNumber;
 
   return (
-    <div className="space-y-6">
+    <div ref={dashboardRef} className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -224,7 +235,7 @@ const Dashboard = () => {
       {/* Charts and Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sales Chart */}
-        <div className="card">
+        <div className="card dashboard-reveal">
           <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Ventas · últimos {dias} días</h3>
@@ -330,7 +341,7 @@ const Dashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="card">
+        <div className="card dashboard-reveal">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h3>
           <div className="space-y-3">
             <Link 
@@ -380,7 +391,7 @@ const Dashboard = () => {
 
       {/* Low Stock Alert */}
       {stats?.productosStockBajo > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 dashboard-reveal">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
               <AlertTriangle className="w-5 h-5 text-red-600" />
