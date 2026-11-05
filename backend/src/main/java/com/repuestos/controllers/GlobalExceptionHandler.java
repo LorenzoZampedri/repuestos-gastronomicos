@@ -1,5 +1,8 @@
 package com.repuestos.controllers;
 
+import com.repuestos.services.NegocioException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -8,6 +11,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -15,5 +19,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> maxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(Map.of("message", "La imagen supera el máximo de 5 MB"));
+    }
+
+    @ExceptionHandler(NegocioException.class)
+    public ResponseEntity<Map<String, String>> negocio(NegocioException ex) {
+        return ResponseEntity.status(ex.getStatus())
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> dataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.warn("Violación de integridad de datos: {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", "No se pudo guardar: algún dato ya existe o no es válido"));
     }
 }

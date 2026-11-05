@@ -162,7 +162,7 @@ const Dashboard = () => {
       format: fmtInt,
       icon: Users,
       color: 'bg-orange-500',
-      link: '/cuentas-corrientes'
+      link: '/cuentas-corrientes?filtro=deuda'
     },
     {
       name: 'Stock Bajo',

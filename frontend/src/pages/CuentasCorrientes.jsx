@@ -11,6 +11,13 @@ const ESTADO_VENTA_STYLE = {
   ANULADA: 'bg-gray-100 text-gray-800'
 };
 
+const FILTROS_VALIDOS = ['deuda', 'aldia'];
+
+const leerFiltroInicial = () => {
+  const filtro = new URLSearchParams(window.location.search).get('filtro');
+  return FILTROS_VALIDOS.includes(filtro) ? filtro : null;
+};
+
 const CuentasCorrientes = () => {
   const [clientes, setClientes] = useState([]);
   const [todosLosClientes, setTodosLosClientes] = useState([]);
@@ -21,10 +28,21 @@ const CuentasCorrientes = () => {
   const [pagos, setPagos] = useState([]);
   const [ajustandoSaldo, setAjustandoSaldo] = useState(null);
   const [montoAjuste, setMontoAjuste] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState(null);
+  const [filtroEstado, setFiltroEstado] = useState(leerFiltroInicial);
 
   useEffect(() => {
     fetchClientesConDeuda();
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('filtro')) {
+      params.delete('filtro');
+      const search = params.toString();
+      window.history.replaceState(
+        null,
+        '',
+        window.location.pathname + (search ? `?${search}` : '') + window.location.hash
+      );
+    }
   }, []);
 
   const fetchClientesConDeuda = async () => {

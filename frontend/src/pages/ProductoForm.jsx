@@ -264,6 +264,7 @@ const ProductoForm = () => {
               onChange={handleChange}
               className="input"
               placeholder="Opcional"
+              maxLength={50}
             />
           </div>
           <div>

@@ -3,6 +3,7 @@ package com.repuestos.services;
 import com.repuestos.models.Producto;
 import com.repuestos.repositories.ProductoRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,22 +45,25 @@ public class ProductoService {
     }
     
     public Producto guardar(Producto producto) {
-        normalizarCodigoBarras(producto);
+        String codigo = normalizarCodigoBarras(producto.getCodigoBarras());
+        validarCodigoBarras(codigo, null);
+        producto.setCodigoBarras(codigo);
         sincronizarPrecioArs(producto);
         return productoRepository.save(producto);
     }
     
     public Producto actualizar(Long id, Producto productoActualizado) {
         Producto producto = buscarPorId(id);
+        String codigo = normalizarCodigoBarras(productoActualizado.getCodigoBarras());
+        validarCodigoBarras(codigo, id);
         producto.setNombre(productoActualizado.getNombre());
         producto.setDescripcion(productoActualizado.getDescripcion());
         producto.setPrecioUsd(productoActualizado.getPrecioUsd());
         producto.setStockActual(productoActualizado.getStockActual());
         producto.setStockMinimo(productoActualizado.getStockMinimo());
-        producto.setCodigoBarras(productoActualizado.getCodigoBarras());
+        producto.setCodigoBarras(codigo);
         producto.setImagenUrl(productoActualizado.getImagenUrl());
         producto.setCategoria(productoActualizado.getCategoria());
-        normalizarCodigoBarras(producto);
         sincronizarPrecioArs(producto);
         return productoRepository.save(producto);
     }
@@ -73,10 +77,32 @@ public class ProductoService {
         }
     }
 
-    private void normalizarCodigoBarras(Producto producto) {
-        if (producto.getCodigoBarras() != null && producto.getCodigoBarras().isBlank()) {
-            producto.setCodigoBarras(null);
+    private String normalizarCodigoBarras(String codigo) {
+        if (codigo == null) {
+            return null;
         }
+        String normalizado = codigo.trim();
+        return normalizado.isEmpty() ? null : normalizado;
+    }
+
+    private void validarCodigoBarras(String codigo, Long idExcluido) {
+        if (codigo == null) {
+            return;
+        }
+        if (codigo.length() > 50) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST, "El código de barras no puede superar los 50 caracteres");
+        }
+        productoRepository.findByCodigoBarras(codigo).ifPresent(existente -> {
+            if (idExcluido != null && idExcluido.equals(existente.getId())) {
+                return;
+            }
+            if (Boolean.TRUE.equals(existente.getActivo())) {
+                throw new NegocioException(HttpStatus.CONFLICT,
+                        "Ya existe un producto con el código de barras '" + codigo + "' (" + existente.getNombre() + ").");
+            }
+            throw new NegocioException(HttpStatus.CONFLICT,
+                    "El código de barras '" + codigo + "' pertenece a un producto eliminado (" + existente.getNombre() + "). Usá otro código.");
+        });
     }
     
     @Transactional
