@@ -1,3 +1,8 @@
+-- ADVERTENCIA: NO aplicar este script en bases con ventas anuladas usando el
+-- código actual (a88f4e3+) ni con saldos legacy ya compensados. El paso 3
+-- asume que toda venta ANULADA sigue sumada al saldo y puede dejarlo negativo.
+-- Para el estado actual usar db/fix_cc_v2_saldos_pendientes.sql.
+--
 -- Reparación de cuentas corrientes (PostgreSQL)
 --
 -- Corrige datos generados por versiones anteriores que permitían:

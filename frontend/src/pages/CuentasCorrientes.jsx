@@ -15,7 +15,7 @@ const FILTROS_VALIDOS = ['deuda', 'aldia'];
 
 const leerFiltroInicial = () => {
   const filtro = new URLSearchParams(window.location.search).get('filtro');
-  return FILTROS_VALIDOS.includes(filtro) ? filtro : null;
+  return FILTROS_VALIDOS.includes(filtro) ? filtro : 'deuda';
 };
 
 const CuentasCorrientes = () => {
@@ -76,6 +76,19 @@ const CuentasCorrientes = () => {
     }
   };
 
+  useEffect(() => {
+    const refrescarAlVolver = () => {
+      fetchClientesConDeuda();
+      if (clienteSeleccionado) {
+        fetchVentasCliente(clienteSeleccionado.id);
+        fetchPagosCliente(clienteSeleccionado.id);
+      }
+    };
+
+    window.addEventListener('focus', refrescarAlVolver);
+    return () => window.removeEventListener('focus', refrescarAlVolver);
+  }, [clienteSeleccionado]);
+
   const handleSeleccionarCliente = (cliente) => {
     setClienteSeleccionado(cliente);
     fetchVentasCliente(cliente.id);
@@ -106,6 +119,7 @@ const CuentasCorrientes = () => {
   };
 
   const clientesConDeuda = clientes.filter(c => (c.saldoCorriente || 0) > 0);
+  const ventasVisibles = ventas.filter(venta => venta.estado !== 'ANULADA');
   const totalDeuda = clientesConDeuda.reduce((sum, c) => sum + (c.saldoCorriente || 0), 0);
   const clientesAlDia = todosLosClientes.filter(c => (c.saldoCorriente || 0) <= 0).length;
 
@@ -310,7 +324,7 @@ const CuentasCorrientes = () => {
 
               <h4 className="font-medium text-gray-700 mb-3">Historial de ventas</h4>
               <div className="space-y-3">
-                {ventas.map((venta) => (
+                {ventasVisibles.map((venta) => (
                   <button
                     key={venta.id}
                     type="button"
@@ -343,9 +357,9 @@ const CuentasCorrientes = () => {
                     </div>
                   </button>
                 ))}
-                {ventas.length === 0 && (
+                {ventasVisibles.length === 0 && (
                   <p className="text-center text-gray-500 py-4">
-                    No hay ventas registradas
+                    No hay ventas activas
                   </p>
                 )}
               </div>
