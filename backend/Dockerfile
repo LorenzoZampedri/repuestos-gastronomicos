@@ -25,5 +25,8 @@ COPY --from=build /app/target/*.jar app.jar
 # Expose port
 EXPOSE 8080
 
+# Uploads directory
+RUN mkdir -p /app/uploads
+
 # Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]

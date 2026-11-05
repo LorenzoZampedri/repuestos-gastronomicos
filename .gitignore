@@ -28,6 +28,10 @@ frontend/dist/
 # Docker
 pgdata/
 
+# Uploads
+uploads/
+backend/uploads/
+
 # Logs
 *.log
 logs/

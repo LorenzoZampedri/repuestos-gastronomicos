@@ -32,6 +32,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-repuestos123}
       JWT_SECRET: ${JWT_SECRET:-repuestos-secret-key-2024-change-in-production}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      APP_UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,6 +56,7 @@ services:
 
 volumes:
   pgdata:
+  uploads:
 
 networks:
   repuestos-network:

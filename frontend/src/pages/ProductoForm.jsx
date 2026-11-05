@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 
 const MENSAJE_IMAGEN_URL_INVALIDA =
   'Ingresá una URL completa (https://...) o una ruta local que empiece con / (ej: /images/archivo.jpg)';
+const MENSAJE_FORMATO_INVALIDO = 'Formato no permitido. Usá JPG, PNG o WebP';
+const MENSAJE_IMAGEN_GRANDE = 'La imagen supera el máximo de 5 MB';
+const MAX_IMAGEN_BYTES = 5 * 1024 * 1024;
+const TIPOS_IMAGEN_PERMITIDOS = ['image/jpeg', 'image/png', 'image/webp'];
 
 const esImagenUrlValida = (valor) => {
   const v = (valor || '').trim();
@@ -34,7 +38,12 @@ const ProductoForm = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imagenError, setImagenError] = useState('');
+  const [archivo, setArchivo] = useState(null);
+  const [archivoError, setArchivoError] = useState('');
+  const [previewUrl, setPreviewUrl] = useState('');
   const imagenInputRef = useRef(null);
+  const archivoInputRef = useRef(null);
+  const previewObjectUrlRef = useRef(null);
 
   useEffect(() => {
     fetchCategorias();
@@ -42,6 +51,14 @@ const ProductoForm = () => {
       fetchProducto();
     }
   }, [id]);
+
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+      }
+    };
+  }, []);
 
   const fetchCategorias = async () => {
     try {
@@ -81,11 +98,56 @@ const ProductoForm = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const limpiarPreviewObjeto = () => {
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = null;
+    }
+    setPreviewUrl('');
+  };
+
+  const handleArchivoChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    if (!file) return;
+
+    if (!TIPOS_IMAGEN_PERMITIDOS.includes(file.type)) {
+      setArchivoError(MENSAJE_FORMATO_INVALIDO);
+      setArchivo(null);
+      limpiarPreviewObjeto();
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > MAX_IMAGEN_BYTES) {
+      setArchivoError(MENSAJE_IMAGEN_GRANDE);
+      setArchivo(null);
+      limpiarPreviewObjeto();
+      e.target.value = '';
+      return;
+    }
+
+    setArchivoError('');
+    setImagenError('');
+    limpiarPreviewObjeto();
+    const objectUrl = URL.createObjectURL(file);
+    previewObjectUrlRef.current = objectUrl;
+    setPreviewUrl(objectUrl);
+    setArchivo(file);
+    e.target.value = '';
+  };
+
+  const handleQuitarArchivo = () => {
+    limpiarPreviewObjeto();
+    setArchivo(null);
+    setArchivoError('');
+    if (archivoInputRef.current) archivoInputRef.current.value = '';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     const imagenUrl = formData.imagenUrl.trim();
-    if (!esImagenUrlValida(imagenUrl)) {
+    if (!archivo && !esImagenUrlValida(imagenUrl)) {
       setImagenError(MENSAJE_IMAGEN_URL_INVALIDA);
       toast.error(MENSAJE_IMAGEN_URL_INVALIDA);
       if (imagenInputRef.current) imagenInputRef.current.focus();
@@ -96,10 +158,34 @@ const ProductoForm = () => {
     setSaving(true);
     
     try {
+      let imagenUrlFinal = imagenUrl;
+
+      if (archivo) {
+        try {
+          const fd = new FormData();
+          fd.append('file', archivo);
+          const respuesta = await api.post('/api/productos/imagen', fd, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          imagenUrlFinal = respuesta.data.url;
+          setFormData(prev => ({ ...prev, imagenUrl: imagenUrlFinal }));
+          limpiarPreviewObjeto();
+          setArchivo(null);
+          if (archivoInputRef.current) archivoInputRef.current.value = '';
+        } catch (error) {
+          const status = error.response?.status;
+          const message = error.response?.data?.message
+            || (status === 413 ? MENSAJE_IMAGEN_GRANDE : 'No se pudo subir la imagen');
+          toast.error(message);
+          setSaving(false);
+          return;
+        }
+      }
+
       const payload = {
         ...formData,
         codigoBarras: formData.codigoBarras.trim() || null,
-        imagenUrl,
+        imagenUrl: imagenUrlFinal,
         precioUsd: parseFloat(formData.precioUsd) || 0,
         stockActual: parseInt(formData.stockActual) || 0,
         stockMinimo: parseInt(formData.stockMinimo) || 5,
@@ -259,6 +345,51 @@ const ProductoForm = () => {
           </div>
         </div>
 
+        {/* Imagen: subir archivo o usar URL */}
+        <div>
+          <label className="label">Imagen del producto</label>
+          <input
+            type="file"
+            ref={archivoInputRef}
+            onChange={handleArchivoChange}
+            accept="image/jpeg,image/png,image/webp"
+            hidden
+          />
+          {!archivo ? (
+            <button
+              type="button"
+              onClick={() => archivoInputRef.current?.click()}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Subir imagen desde tu PC
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-700">
+                {archivo.name} ({Math.round(archivo.size / 1024)} KB)
+              </span>
+              <button
+                type="button"
+                onClick={handleQuitarArchivo}
+                className="text-sm text-red-500 hover:text-red-600"
+              >
+                Quitar
+              </button>
+            </div>
+          )}
+          <p className="text-xs text-gray-500 mt-1">JPG, PNG o WebP · máx. 5 MB</p>
+          {archivoError && (
+            <p className="text-xs text-red-500 mt-1">{archivoError}</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="h-px flex-1 bg-gray-200"></div>
+          <span className="text-xs text-gray-400">o</span>
+          <div className="h-px flex-1 bg-gray-200"></div>
+        </div>
+
         {/* URL de imagen */}
         <div>
           <label htmlFor="producto-imagen" className="label">URL de imagen (opcional)</label>
@@ -270,23 +401,28 @@ const ProductoForm = () => {
             value={formData.imagenUrl}
             onChange={handleChange}
             ref={imagenInputRef}
-            className="input"
+            className="input disabled:bg-gray-100 disabled:text-gray-500"
             placeholder="https://ejemplo.com/imagen.jpg o /images/archivo.jpg"
+            disabled={!!archivo}
           />
           {imagenError && (
             <p className="text-xs text-red-500 mt-1">{imagenError}</p>
           )}
-          <p className="text-xs text-gray-500 mt-1">
-            URL completa (https://...) o ruta local (/images/archivo.jpg)
-          </p>
+          {archivo ? (
+            <p className="text-xs text-gray-500 mt-1">Se usará el archivo seleccionado</p>
+          ) : (
+            <p className="text-xs text-gray-500 mt-1">
+              URL completa (https://...) o ruta local (/images/archivo.jpg)
+            </p>
+          )}
         </div>
 
         {/* Preview de imagen */}
-        {formData.imagenUrl && (
+        {(archivo ? previewUrl : formData.imagenUrl) && (
           <div className="border border-gray-200 rounded-lg p-4">
             <p className="text-sm text-gray-500 mb-2">Vista previa:</p>
             <img 
-              src={formData.imagenUrl} 
+              src={archivo ? previewUrl : formData.imagenUrl}
               alt="Preview" 
               className="w-32 h-32 object-contain rounded-lg"
               onError={(e) => e.target.style.display = 'none'}
