@@ -10,6 +10,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -98,6 +100,29 @@ public class VentaService {
         return ventaGuardada;
     }
     
+    /**
+     * Crea la venta y, si se indica un método de pago distinto de cuenta corriente,
+     * registra el pago por el total calculado por el backend dentro de la misma
+     * transacción. Así el monto cobrado nunca depende del total calculado en el frontend.
+     */
+    @Transactional
+    public Venta crearVentaConPago(Venta venta, List<DetalleVenta> detalles,
+                                   Long clienteId, String metodoPago) {
+        Venta ventaGuardada = crearVenta(venta, detalles, clienteId);
+        if (metodoPago != null
+                && !metodoPago.isBlank()
+                && !"CUENTA_CORRIENTE".equalsIgnoreCase(metodoPago)) {
+            Pago pago = Pago.builder()
+                    .monto(ventaGuardada.getTotal())
+                    .metodoPago(parseMetodoPago(metodoPago))
+                    .moneda("ARS")
+                    .referencia("Pago de venta")
+                    .build();
+            registrarPago(ventaGuardada.getId(), pago);
+        }
+        return buscarPorId(ventaGuardada.getId());
+    }
+
     @Transactional
     public Pago registrarPago(Long ventaId, Pago pago) {
         Venta venta = buscarPorId(ventaId);
@@ -140,6 +165,12 @@ public class VentaService {
             throw new IllegalArgumentException("El monto debe ser mayor a cero");
         }
         BigDecimal montoPago = monto.setScale(2, RoundingMode.HALF_UP);
+
+        // Los datos viejos pueden tener ventas sobrepagadas (saldo pendiente negativo)
+        // junto con otras ventas impagas del mismo cliente. Antes de imputar el pago,
+        // movemos esos excedentes a las ventas abiertas para que nunca queden créditos
+        // "atrapados" en ventas ya pagadas.
+        reasignarExcedentes(clienteId);
 
         Cliente cliente = clienteRepository.findById(clienteId)
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
@@ -191,6 +222,106 @@ public class VentaService {
     }
 
     /**
+     * Reasigna el excedente de las ventas sobrepagadas a las ventas abiertas del mismo
+     * cliente. Mueve los pagos (o parte de ellos) sin alterar el monto total cobrado ni
+     * el saldoCorriente del cliente.
+     */
+    private void reasignarExcedentes(Long clienteId) {
+        List<Venta> ventas = new ArrayList<>(ventaRepository.findByClienteId(clienteId));
+        ventas.sort(Comparator.comparing(Venta::getFecha).thenComparing(Venta::getId));
+
+        for (Venta origen : ventas) {
+            if (origen.getEstado() == Venta.EstadoVenta.ANULADA) {
+                continue;
+            }
+            BigDecimal excedente = pagadoPrevio(origen.getId()).subtract(origen.getTotal());
+            if (excedente.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            for (Venta destino : ventas) {
+                if (excedente.compareTo(BigDecimal.ZERO) <= 0) {
+                    break;
+                }
+                if (destino.getId().equals(origen.getId())
+                        || destino.getEstado() == Venta.EstadoVenta.ANULADA) {
+                    continue;
+                }
+                BigDecimal pendiente = destino.getTotal().subtract(pagadoPrevio(destino.getId()));
+                if (pendiente.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
+
+                BigDecimal mover = excedente.min(pendiente);
+                moverPagos(origen.getId(), destino, mover);
+                actualizarEstado(destino);
+                excedente = excedente.subtract(mover);
+            }
+
+            actualizarEstado(origen);
+        }
+    }
+
+    /**
+     * Mueve hasta {@code monto} de los pagos de una venta origen a una venta destino,
+     * partiendo un pago si hace falta.
+     */
+    private void moverPagos(Long ventaOrigenId, Venta destino, BigDecimal monto) {
+        BigDecimal restante = monto;
+        List<Pago> pagos = new ArrayList<>(pagoRepository.findByVentaId(ventaOrigenId));
+        pagos.sort(Comparator.comparing(Pago::getId));
+
+        for (Pago pago : pagos) {
+            if (restante.compareTo(BigDecimal.ZERO) <= 0) {
+                break;
+            }
+            BigDecimal disponible = pago.getMonto();
+            if (disponible.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            BigDecimal mover = restante.min(disponible);
+            if (mover.compareTo(disponible) >= 0) {
+                pago.setVenta(destino);
+                pago.setCliente(destino.getCliente());
+                pagoRepository.save(pago);
+            } else {
+                pago.setMonto(disponible.subtract(mover));
+                pagoRepository.save(pago);
+                pagoRepository.save(Pago.builder()
+                        .venta(destino)
+                        .cliente(destino.getCliente())
+                        .monto(mover)
+                        .metodoPago(pago.getMetodoPago())
+                        .moneda(pago.getMoneda())
+                        .fecha(pago.getFecha())
+                        .referencia("Reasignación de sobrepago")
+                        .usuario(pago.getUsuario())
+                        .build());
+            }
+            restante = restante.subtract(mover);
+        }
+
+        if (restante.compareTo(BigDecimal.ZERO) > 0) {
+            throw new IllegalStateException("No hay pagos suficientes para reasignar el excedente");
+        }
+    }
+
+    private void actualizarEstado(Venta venta) {
+        if (venta.getEstado() == Venta.EstadoVenta.ANULADA) {
+            return;
+        }
+        BigDecimal pagado = pagadoPrevio(venta.getId());
+        if (pagado.compareTo(BigDecimal.ZERO) <= 0) {
+            venta.setEstado(Venta.EstadoVenta.PENDIENTE);
+        } else if (pagado.compareTo(venta.getTotal()) >= 0) {
+            venta.setEstado(Venta.EstadoVenta.PAGADA);
+        } else {
+            venta.setEstado(Venta.EstadoVenta.PARCIAL);
+        }
+    }
+
+    /**
      * Aplica un monto a una venta: valida que pueda recibir el pago y actualiza su estado.
      * Debe invocarse ANTES de persistir el Pago correspondiente.
      */
@@ -237,10 +368,26 @@ public class VentaService {
     @Transactional
     public void anularVenta(Long ventaId) {
         Venta venta = buscarPorId(ventaId);
+        if (venta.getEstado() == Venta.EstadoVenta.ANULADA) {
+            throw new IllegalArgumentException("La venta ya está anulada");
+        }
         
         // Devolver stock
         for (DetalleVenta detalle : venta.getDetalles()) {
             productoService.agregarStock(detalle.getProducto().getId(), detalle.getCantidad());
+        }
+
+        // Cancelar el efecto neto que la venta tenía sobre la cuenta corriente:
+        // si quedaba deuda, se elimina; si había un excedente a favor, también se revierte.
+        BigDecimal saldoNetoVenta = venta.getTotal().subtract(pagadoPrevio(ventaId));
+        if (venta.getCliente() != null && saldoNetoVenta.compareTo(BigDecimal.ZERO) != 0) {
+            Cliente cliente = clienteRepository.findById(venta.getCliente().getId())
+                    .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+            BigDecimal saldoActual = cliente.getSaldoCorriente() == null
+                    ? BigDecimal.ZERO
+                    : cliente.getSaldoCorriente();
+            cliente.setSaldoCorriente(saldoActual.subtract(saldoNetoVenta));
+            clienteRepository.save(cliente);
         }
         
         venta.setEstado(Venta.EstadoVenta.ANULADA);

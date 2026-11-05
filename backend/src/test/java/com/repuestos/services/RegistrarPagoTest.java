@@ -194,7 +194,8 @@ class RegistrarPagoTest {
         Venta recargada = recargarVenta(venta.getId());
         assertEquals(Venta.EstadoVenta.ANULADA, recargada.getEstado());
         assertEquals(0, BigDecimal.ZERO.compareTo(montoPagadoReal(venta.getId())));
-        assertEquals(0, new BigDecimal("100.00").compareTo(saldoCliente()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(saldoCliente()),
+                "al anular una venta impaga se debe cancelar la deuda del cliente");
     }
 
     @Test

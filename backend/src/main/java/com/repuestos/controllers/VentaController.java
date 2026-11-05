@@ -58,7 +58,8 @@ public class VentaController {
             .observaciones(request.getObservaciones())
             .build();
         
-        Venta creada = ventaService.crearVenta(venta, request.getDetalles(), request.getClienteId());
+        Venta creada = ventaService.crearVentaConPago(
+                venta, request.getDetalles(), request.getClienteId(), request.getMetodoPago());
         return ResponseEntity.ok(creada);
     }
     
@@ -93,6 +94,7 @@ public class VentaController {
         private Long clienteId;
         private List<DetalleVenta> detalles;
         private String observaciones;
+        private String metodoPago;
     }
     
     @Data

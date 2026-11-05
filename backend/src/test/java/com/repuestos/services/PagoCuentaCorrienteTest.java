@@ -1,10 +1,14 @@
 package com.repuestos.services;
 
 import com.repuestos.models.Cliente;
+import com.repuestos.models.DetalleVenta;
+import com.repuestos.models.Pago;
+import com.repuestos.models.Producto;
 import com.repuestos.models.Usuario;
 import com.repuestos.models.Venta;
 import com.repuestos.repositories.ClienteRepository;
 import com.repuestos.repositories.PagoRepository;
+import com.repuestos.repositories.ProductoRepository;
 import com.repuestos.repositories.UsuarioRepository;
 import com.repuestos.repositories.VentaRepository;
 import jakarta.persistence.EntityManager;
@@ -16,6 +20,7 @@ import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,6 +35,7 @@ class PagoCuentaCorrienteTest {
     @Autowired private PagoRepository pagoRepository;
     @Autowired private ClienteRepository clienteRepository;
     @Autowired private UsuarioRepository usuarioRepository;
+    @Autowired private ProductoRepository productoRepository;
     @Autowired private EntityManager entityManager;
 
     private Usuario usuario;
@@ -157,8 +163,8 @@ class PagoCuentaCorrienteTest {
         entityManager.clear();
         ventaService.anularVenta(anulada.getId());
         entityManager.flush();
-        // El saldo no se revierte al anular (comportamiento existente, fuera de alcance):
-        // queda 100 = deuda de la anulada + deuda de la abierta.
+        // Estas ventas se crean directo por repositorio, sin el flujo que suma la deuda
+        // al cliente. Se fija el saldo para simular el estado real antes del pago.
         fijarSaldoCliente("100.00");
 
         pagarCuentaCorrienteComoRequest("50.00");
@@ -228,5 +234,76 @@ class PagoCuentaCorrienteTest {
         entityManager.clear();
         Cliente resultado = clienteService.ajustarSaldo(cliente.getId(), new BigDecimal("25.00"), "sumar", null);
         assertEquals(0, new BigDecimal("25.00").compareTo(resultado.getSaldoCorriente()));
+    }
+
+    @Test
+    void pagoCuentaCorrienteReasignaExcedenteDeVentaSobrepagada() {
+        Venta origen = crearVenta("100.00", LocalDateTime.of(2026, 1, 1, 10, 0));
+        Venta abierta = crearVenta("100.00", LocalDateTime.of(2026, 1, 2, 10, 0));
+        origen.setEstado(Venta.EstadoVenta.PAGADA);
+        ventaRepository.save(origen);
+        pagoRepository.save(Pago.builder()
+                .venta(origen)
+                .cliente(cliente)
+                .monto(new BigDecimal("120.00"))
+                .metodoPago(Pago.MetodoPago.EFECTIVO)
+                .fecha(LocalDateTime.now())
+                .build());
+        // 200 de ventas - 120 pagados = 80 de deuda real
+        fijarSaldoCliente("80.00");
+
+        pagarCuentaCorrienteComoRequest("80.00");
+
+        Venta rOrigen = recargarVenta(origen.getId());
+        Venta.EstadoVenta estadoOrigen = rOrigen.getEstado();
+        BigDecimal pendienteOrigen = rOrigen.getSaldoPendiente();
+        Venta rAbierta = recargarVenta(abierta.getId());
+        assertEquals(Venta.EstadoVenta.PAGADA, estadoOrigen);
+        assertEquals(0, new BigDecimal("100.00").compareTo(montoPagadoReal(origen.getId())),
+                "el excedente de 20 debe salir de la venta sobrepagada");
+        assertEquals(Venta.EstadoVenta.PAGADA, rAbierta.getEstado());
+        assertEquals(0, new BigDecimal("100.00").compareTo(montoPagadoReal(abierta.getId())));
+        assertEquals(0, BigDecimal.ZERO.compareTo(pendienteOrigen));
+        assertEquals(0, BigDecimal.ZERO.compareTo(rAbierta.getSaldoPendiente()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(saldoCliente()));
+    }
+
+    @Test
+    void anularVentaCancelaDeudaPendienteDelCliente() {
+        Venta venta = crearVenta("100.00", LocalDateTime.of(2026, 1, 1, 10, 0));
+        fijarSaldoCliente("100.00");
+
+        entityManager.clear();
+        ventaService.anularVenta(venta.getId());
+        entityManager.flush();
+
+        assertEquals(0, BigDecimal.ZERO.compareTo(saldoCliente()),
+                "la deuda de una venta anulada no debe quedar en la cuenta corriente");
+    }
+
+    @Test
+    void crearVentaConPagoUsaElTotalCalculadoPorElBackend() {
+        Producto producto = productoRepository.save(Producto.builder()
+                .nombre("Quemador")
+                .precio(new BigDecimal("8500.00"))
+                .stockActual(20)
+                .build());
+        DetalleVenta detalle = DetalleVenta.builder()
+                .producto(producto)
+                .cantidad(16)
+                .build();
+        Venta venta = Venta.builder()
+                .usuario(usuario)
+                .build();
+
+        Venta creada = ventaService.crearVentaConPago(
+                venta, List.of(detalle), cliente.getId(), "EFECTIVO");
+        entityManager.flush();
+
+        // 16 unidades superan el umbral: 8500 * 0.85 = 7225 por unidad
+        assertEquals(0, new BigDecimal("115600.00").compareTo(creada.getTotal()));
+        assertEquals(0, new BigDecimal("115600.00").compareTo(montoPagadoReal(creada.getId())));
+        assertEquals(Venta.EstadoVenta.PAGADA, recargarVenta(creada.getId()).getEstado());
+        assertEquals(0, BigDecimal.ZERO.compareTo(saldoCliente()));
     }
 }

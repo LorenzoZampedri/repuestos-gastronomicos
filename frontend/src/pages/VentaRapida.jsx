@@ -8,9 +8,10 @@ import { formatMoney } from '../utils/format';
 
 const precioUnitarioItem = (item) => {
   const base = item.producto.precio || 0;
-  return item.cantidad > UMBRAL_DESCUENTO
+  const precio = item.cantidad > UMBRAL_DESCUENTO
     ? base * (1 - PCT_DESCUENTO)
     : base;
+  return Math.round(precio * 100) / 100;
 };
 
 const VentaRapida = () => {
@@ -149,18 +150,13 @@ const VentaRapida = () => {
       const payload = {
         clienteId: clienteSeleccionado ? parseInt(clienteSeleccionado) : null,
         detalles,
-        observaciones: observacionesDeuda || ''
+        observaciones: observacionesDeuda || '',
+        metodoPago
       };
 
-      const response = await api.post('/api/ventas', payload);
-      
-      if (response.data.id && metodoPago !== 'CUENTA_CORRIENTE') {
-        await api.post(`/api/ventas/${response.data.id}/pago`, {
-          monto: total,
-          metodoPago: metodoPago,
-          moneda: 'ARS'
-        });
-      }
+      // El backend crea la venta y registra el pago por el total que él mismo calcula.
+      // Nunca se envía un monto calculado en el navegador.
+      await api.post('/api/ventas', payload);
 
       toast.success('Venta registrada exitosamente!');
       navigate('/ventas');
