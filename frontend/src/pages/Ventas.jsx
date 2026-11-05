@@ -10,6 +10,7 @@ const POR_PAGINA = 10;
 const FILTROS_VALIDOS = ['hoy', 'ayer', 'semana', 'mes', 'todo'];
 
 const leerFiltroInicial = () => {
+  if (/^#venta-\d+$/.test(window.location.hash)) return 'todo';
   const filtro = new URLSearchParams(window.location.search).get('filtro');
   return FILTROS_VALIDOS.includes(filtro) ? filtro : 'mes';
 };
@@ -24,6 +25,7 @@ const Ventas = () => {
   const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [pagina, setPagina] = useState(1);
+  const [ventaResaltada, setVentaResaltada] = useState(null);
 
   useEffect(() => {
     aplicarFiltro(filtroInicial);
@@ -51,9 +53,16 @@ const Ventas = () => {
     const el = document.getElementById(`venta-${match[1]}`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setVentaResaltada(match[1]);
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
     }
   }, [loading, pagina]);
+
+  useEffect(() => {
+    if (!ventaResaltada) return;
+    const timer = setTimeout(() => setVentaResaltada(null), 4000);
+    return () => clearTimeout(timer);
+  }, [ventaResaltada]);
 
   const hoy = () => new Date().toISOString().split('T')[0];
 
@@ -99,7 +108,10 @@ const Ventas = () => {
       const match = window.location.hash.match(/^#venta-(\d+)$/);
       if (match) {
         const idx = response.data.findIndex((v) => String(v.id) === match[1]);
-        if (idx >= 0) setPagina(Math.floor(idx / POR_PAGINA) + 1);
+        if (idx >= 0) {
+          setPagina(Math.floor(idx / POR_PAGINA) + 1);
+          setVentaResaltada(match[1]);
+        }
       }
     } catch (error) {
       toast.error('Error al cargar ventas');
@@ -235,7 +247,7 @@ const Ventas = () => {
               </thead>
               <tbody>
                 {ventasPagina.map((venta) => (
-                   <tr key={venta.id} id={`venta-${venta.id}`} className="border-b border-gray-100 hover:bg-gray-50">
+                   <tr key={venta.id} id={`venta-${venta.id}`} className={`border-b border-gray-100 transition-colors ${String(venta.id) === ventaResaltada ? 'bg-yellow-50 ring-2 ring-inset ring-primary-500' : 'hover:bg-gray-50'}`}>
                      <td className="py-3 px-4 text-sm font-mono text-gray-600">
                        #{venta.id}
                      </td>

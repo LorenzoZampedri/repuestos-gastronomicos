@@ -329,7 +329,7 @@ const CuentasCorrientes = () => {
                     key={venta.id}
                     type="button"
                     className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                    onClick={() => { window.location.href = `/ventas#venta-${venta.id}`; }}
+                    onClick={() => { window.location.href = `/ventas?filtro=todo#venta-${venta.id}`; }}
                     title="Ver venta en historial"
                   >
                     <div>
