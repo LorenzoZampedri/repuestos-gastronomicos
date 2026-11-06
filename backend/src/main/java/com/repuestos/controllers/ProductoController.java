@@ -1,5 +1,6 @@
 package com.repuestos.controllers;
 
+import com.repuestos.dto.CatalogoProductoResponse;
 import com.repuestos.models.Producto;
 import com.repuestos.services.ImagenInvalidaException;
 import com.repuestos.services.ImagenStorageService;
@@ -53,8 +54,10 @@ public class ProductoController {
     }
     
     @GetMapping("/catalogo")
-    public ResponseEntity<List<Producto>> catalogoPublico() {
-        return ResponseEntity.ok(productoService.listarTodos());
+    public ResponseEntity<List<CatalogoProductoResponse>> catalogoPublico() {
+        return ResponseEntity.ok(productoService.listarTodos().stream()
+                .map(CatalogoProductoResponse::desde)
+                .toList());
     }
     
     @PostMapping

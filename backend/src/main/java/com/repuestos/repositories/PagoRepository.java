@@ -13,6 +13,8 @@ import java.util.List;
 public interface PagoRepository extends JpaRepository<Pago, Long> {
     
     List<Pago> findByVentaId(Long ventaId);
+
+    long countByCliente_IdOrVenta_Cliente_Id(Long clienteId, Long ventaClienteId);
     
     @Query("SELECT p FROM Pago p "
             + "LEFT JOIN FETCH p.usuario "

@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, Phone, ShoppingCart, X, Trash2, MessageCircle, Plus, Minus } from 'lucide-react';
+import { Package, Phone, ShoppingCart, X, Trash2, MessageCircle, Plus, Minus, LogOut, User, ClipboardList } from 'lucide-react';
 import { gsap, prefersReducedMotion } from '../lib/animations';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { useCurrency, PCT_DESCUENTO, UMBRAL_DESCUENTO } from '../context/CurrencyContext';
 import { formatMoney, normalizePhone } from '../utils/format';
 import PageTransition from './PageTransition';
+import PedidoModal from './PedidoModal';
 
-const CartDrawer = ({ isOpen, onClose }) => {
+const CartDrawer = ({ isOpen, onClose, onHacerPedido }) => {
   const {
     items, removeItem, updateQuantity, clearCart, contactWhatsApp,
     tieneDescuento, precioUnitario, precioLista, subtotalItem, cartTotal
   } = useCart();
   const { moneda, hayCotizacion } = useCurrency();
+  const { user } = useAuth();
 
   const overlayRef = useRef(null);
   const panelRef = useRef(null);
@@ -184,6 +187,35 @@ const CartDrawer = ({ isOpen, onClose }) => {
             >
               Vaciar carrito
             </button>
+            {user?.rol === 'CLIENTE' ? (
+              <button
+                onClick={onHacerPedido}
+                className="btn-primary w-full flex items-center justify-center gap-2"
+              >
+                <ShoppingCart className="w-5 h-5" aria-hidden="true" />
+                Comprar
+              </button>
+            ) : !user && (
+              <div className="text-center text-sm text-gray-600 space-y-1">
+                <p>Ingresá o registrate para hacer tu pedido</p>
+                <div className="flex justify-center gap-3">
+                  <Link
+                    to="/login"
+                    onClick={onClose}
+                    className="text-primary-800 font-medium hover:underline"
+                  >
+                    Iniciar sesión
+                  </Link>
+                  <Link
+                    to="/registro"
+                    onClick={onClose}
+                    className="text-primary-800 font-medium hover:underline"
+                  >
+                    Crear cuenta
+                  </Link>
+                </div>
+              </div>
+            )}
             <button
               onClick={contactWhatsApp}
               className="btn-whatsapp w-full"
@@ -200,8 +232,19 @@ const CartDrawer = ({ isOpen, onClose }) => {
 
 const PublicLayout = ({ children }) => {
   const [cartOpen, setCartOpen] = useState(false);
+  const [pedidoOpen, setPedidoOpen] = useState(false);
   const { itemCount } = useCart();
   const { getWhatsAppUrl, whatsappNumber } = useCurrency();
+  const { user, logout, homePorRol } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  const abrirPedido = () => {
+    setCartOpen(false);
+    setPedidoOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -219,6 +262,15 @@ const PublicLayout = ({ children }) => {
             </div>
 
             <div className="flex items-center gap-4">
+              {user?.rol === 'CLIENTE' && (
+                <Link
+                  to="/mis-pedidos"
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-primary-800"
+                >
+                  <ClipboardList className="w-4 h-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Mis pedidos</span>
+                </Link>
+              )}
               <a
                 href={getWhatsAppUrl()}
                 target="_blank"
@@ -240,12 +292,40 @@ const PublicLayout = ({ children }) => {
                   </span>
                 )}
               </button>
-              <Link
-                to="/login"
-                className="text-sm text-gray-600 hover:text-primary-800"
-              >
-                Iniciar Sesión
-              </Link>
+              {user ? (
+                <>
+                  <Link
+                    to={homePorRol()}
+                    className="hidden sm:flex items-center gap-2 text-sm text-gray-600 hover:text-primary-800"
+                  >
+                    <User className="w-4 h-4" aria-hidden="true" />
+                    {user.nombre}
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-primary-800"
+                    title="Cerrar sesión"
+                  >
+                    <LogOut className="w-4 h-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">Salir</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/registro"
+                    className="text-sm text-gray-600 hover:text-primary-800"
+                  >
+                    Crear cuenta
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="text-sm text-gray-600 hover:text-primary-800"
+                  >
+                    Iniciar Sesión
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -272,7 +352,12 @@ const PublicLayout = ({ children }) => {
         </div>
       </footer>
 
-      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
+      <CartDrawer
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+        onHacerPedido={abrirPedido}
+      />
+      <PedidoModal open={pedidoOpen} onClose={() => setPedidoOpen(false)} />
     </div>
   );
 };

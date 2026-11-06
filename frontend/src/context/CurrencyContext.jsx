@@ -21,22 +21,25 @@ export const CurrencyProvider = ({ children }) => {
   const [moneda, setMonedaState] = useState(() => localStorage.getItem('moneda') || MONEDAS.USD);
   const [cotizacion, setCotizacion] = useState(null);
   const [whatsappNumber, setWhatsappNumber] = useState(WHATSAPP_DEFAULT);
+  const [datosTransferencia, setDatosTransferencia] = useState(null);
+
+  const recargarConfiguracion = useCallback(async () => {
+    try {
+      const response = await api.get('/api/configuracion/publica');
+      setCotizacion(response.data.cotizacionUsdArs || null);
+      if (response.data.whatsappNumber) {
+        setWhatsappNumber(response.data.whatsappNumber);
+      }
+      setDatosTransferencia(response.data.datosTransferencia || null);
+    } catch (error) {
+      console.error('Error al cargar configuración:', error);
+      setCotizacion(null);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchConfiguracion = async () => {
-      try {
-        const response = await api.get('/api/configuracion/publica');
-        setCotizacion(response.data.cotizacionUsdArs || null);
-        if (response.data.whatsappNumber) {
-          setWhatsappNumber(response.data.whatsappNumber);
-        }
-      } catch (error) {
-        console.error('Error al cargar configuración:', error);
-        setCotizacion(null);
-      }
-    };
-    fetchConfiguracion();
-  }, []);
+    recargarConfiguracion();
+  }, [recargarConfiguracion]);
 
   const setMoneda = (nuevaMoneda) => {
     setMonedaState(nuevaMoneda);
@@ -77,6 +80,8 @@ export const CurrencyProvider = ({ children }) => {
       cotizacion,
       hayCotizacion,
       whatsappNumber,
+      datosTransferencia,
+      recargarConfiguracion,
       getWhatsAppUrl,
       convertir,
       formatPrice,

@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Save, DollarSign, MessageCircle, History, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, DollarSign, MessageCircle, History, ChevronDown, ChevronUp, Landmark } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import SeccionDesplegable from '../components/SeccionDesplegable';
 import { formatMoney } from '../utils/format';
 
 const Configuracion = () => {
   const [cotizacion, setCotizacion] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [cvu, setCvu] = useState('');
+  const [alias, setAlias] = useState('');
+  const [titular, setTitular] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingTransferencia, setSavingTransferencia] = useState(false);
   const [historialAbierto, setHistorialAbierto] = useState(false);
   const [historial, setHistorial] = useState([]);
   const [historialLoading, setHistorialLoading] = useState(false);
@@ -43,8 +48,14 @@ const Configuracion = () => {
       const configs = response.data;
       const cot = configs.find(c => c.clave === 'cotizacion_usd_ars');
       const wa = configs.find(c => c.clave === 'whatsapp_number');
+      const cvuConfig = configs.find(c => c.clave === 'transferencia_cvu');
+      const aliasConfig = configs.find(c => c.clave === 'transferencia_alias');
+      const titularConfig = configs.find(c => c.clave === 'transferencia_titular');
       setCotizacion(cot?.valor || '');
       setWhatsapp(wa?.valor || '');
+      setCvu(cvuConfig?.valor || '');
+      setAlias(aliasConfig?.valor || '');
+      setTitular(titularConfig?.valor || '');
     } catch (error) {
       toast.error('Error al cargar la configuración');
     } finally {
@@ -88,6 +99,45 @@ const Configuracion = () => {
     }
   };
 
+  const guardarTransferencia = async (e) => {
+    e.preventDefault();
+    const cvuNormalizado = cvu.trim();
+    const aliasNormalizado = alias.trim();
+    const titularNormalizado = titular.trim();
+
+    if (!/^\d{22}$/.test(cvuNormalizado)) {
+      toast.error('El CVU debe tener exactamente 22 dígitos numéricos');
+      return;
+    }
+    if (!/^[A-Za-z0-9.-]{6,20}$/.test(aliasNormalizado)) {
+      toast.error('El alias debe tener entre 6 y 20 caracteres, sin espacios, y solo puede contener letras, números, puntos y guiones');
+      return;
+    }
+    if (!titularNormalizado) {
+      toast.error('El titular de la cuenta es obligatorio');
+      return;
+    }
+    if (titularNormalizado.length > 100) {
+      toast.error('El titular de la cuenta no puede superar los 100 caracteres');
+      return;
+    }
+
+    setSavingTransferencia(true);
+    try {
+      await api.put('/api/configuracion/transferencia', {
+        cvu: cvuNormalizado,
+        alias: aliasNormalizado,
+        titular: titularNormalizado,
+      });
+      toast.success('Datos de transferencia actualizados');
+      await fetchConfiguracion();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error al guardar los datos de transferencia');
+    } finally {
+      setSavingTransferencia(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -101,7 +151,7 @@ const Configuracion = () => {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
         <p className="text-gray-500">
-          Ajustes generales del sistema: cotización del dólar y datos de contacto
+          Ajustes generales del sistema: cotización del dólar, datos de contacto y transferencias
         </p>
       </div>
 
@@ -244,6 +294,66 @@ const Configuracion = () => {
           </button>
         </div>
       </form>
+
+      <SeccionDesplegable id="datos-transferencia" titulo="Datos de transferencia" icono={Landmark}>
+        <form onSubmit={guardarTransferencia} className="space-y-4">
+          <div>
+            <label htmlFor="transferencia-cvu" className="label">CVU</label>
+            <input
+              id="transferencia-cvu"
+              type="text"
+              value={cvu}
+              onChange={(e) => setCvu(e.target.value)}
+              className="input font-mono"
+              placeholder="22 dígitos"
+              maxLength={22}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="transferencia-alias" className="label">Alias</label>
+            <input
+              id="transferencia-alias"
+              type="text"
+              value={alias}
+              onChange={(e) => setAlias(e.target.value)}
+              className="input font-mono"
+              placeholder="Ej: gastorepuestos.mp"
+              maxLength={20}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="transferencia-titular" className="label">
+              Titular de la cuenta
+            </label>
+            <input
+              id="transferencia-titular"
+              type="text"
+              value={titular}
+              onChange={(e) => setTitular(e.target.value)}
+              className="input"
+              placeholder="Nombre o razón social"
+              maxLength={100}
+              required
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={savingTransferencia}
+              className="btn-primary flex items-center gap-2"
+            >
+              {savingTransferencia ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              Guardar
+            </button>
+          </div>
+        </form>
+      </SeccionDesplegable>
     </div>
   );
 };

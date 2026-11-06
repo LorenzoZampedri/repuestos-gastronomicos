@@ -3,6 +3,7 @@ package com.repuestos.services;
 import com.repuestos.models.*;
 import com.repuestos.repositories.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +45,18 @@ public class VentaService {
         return ventaRepository.findVentasPendientes();
     }
     
+    public BigDecimal calcularPrecioUnitario(Producto producto, int cantidad) {
+        BigDecimal precioUnitario = producto.getPrecio();
+        if (cantidad > UMBRAL_DESCUENTO_CANTIDAD) {
+            precioUnitario = precioUnitario.multiply(PCT_DESCUENTO).setScale(2, RoundingMode.HALF_UP);
+        }
+        return precioUnitario;
+    }
+
+    public BigDecimal calcularSubtotal(BigDecimal precioUnitario, int cantidad) {
+        return precioUnitario.multiply(BigDecimal.valueOf(cantidad));
+    }
+
     @Transactional
     public Venta crearVenta(Venta venta, List<DetalleVenta> detalles, Long clienteId) {
         // Validar stock y aplicar descuento por volumen (15% si cantidad > 10)
@@ -52,18 +65,15 @@ public class VentaService {
             if (producto.getStockActual() < detalle.getCantidad()) {
                 throw new RuntimeException("Stock insuficiente para: " + producto.getNombre());
             }
-            BigDecimal precioUnitario = producto.getPrecio();
-            if (detalle.getCantidad() > UMBRAL_DESCUENTO_CANTIDAD) {
-                precioUnitario = precioUnitario.multiply(PCT_DESCUENTO).setScale(2, RoundingMode.HALF_UP);
-            }
-            detalle.setPrecioUnitario(precioUnitario);
+            detalle.setPrecioUnitario(calcularPrecioUnitario(producto, detalle.getCantidad()));
             detalle.setProducto(producto);
         }
         
         // Calcular total
         BigDecimal total = BigDecimal.ZERO;
         for (DetalleVenta detalle : detalles) {
-            BigDecimal subtotal = detalle.getPrecioUnitario().multiply(BigDecimal.valueOf(detalle.getCantidad()));
+            BigDecimal subtotal = calcularSubtotal(
+                    detalle.getPrecioUnitario(), detalle.getCantidad());
             detalle.setSubtotal(subtotal);
             total = total.add(subtotal);
         }
@@ -108,6 +118,10 @@ public class VentaService {
     @Transactional
     public Venta crearVentaConPago(Venta venta, List<DetalleVenta> detalles,
                                    Long clienteId, String metodoPago) {
+        if (clienteId == null && "CUENTA_CORRIENTE".equalsIgnoreCase(metodoPago)) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
+                    "Para vender a cuenta corriente tenés que seleccionar un cliente registrado");
+        }
         Venta ventaGuardada = crearVenta(venta, detalles, clienteId);
         if (metodoPago != null
                 && !metodoPago.isBlank()

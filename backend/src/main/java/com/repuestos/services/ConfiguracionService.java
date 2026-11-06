@@ -1,5 +1,7 @@
 package com.repuestos.services;
 
+import com.repuestos.dto.DatosTransferenciaRequest;
+import com.repuestos.dto.DatosTransferenciaResponse;
 import com.repuestos.models.Configuracion;
 import com.repuestos.models.ConfiguracionHistorial;
 import com.repuestos.models.Producto;
@@ -8,6 +10,7 @@ import com.repuestos.repositories.ConfiguracionRepository;
 import com.repuestos.repositories.ProductoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -23,7 +27,16 @@ public class ConfiguracionService {
 
     public static final String CLAVE_COTIZACION_USD_ARS = "cotizacion_usd_ars";
     public static final String CLAVE_WHATSAPP_NUMBER = "whatsapp_number";
+    public static final String CLAVE_TRANSFERENCIA_CVU = "transferencia_cvu";
+    public static final String CLAVE_TRANSFERENCIA_ALIAS = "transferencia_alias";
+    public static final String CLAVE_TRANSFERENCIA_TITULAR = "transferencia_titular";
     public static final String COTIZACION_INICIAL = "1000";
+    public static final String CVU_INICIAL = "0000003100098765432101";
+    public static final String ALIAS_INICIAL = "gastorepuestos.mp";
+    public static final String TITULAR_INICIAL = "Repuestos Gastronomicos Once";
+
+    private static final Set<String> CLAVES_TRANSFERENCIA = Set.of(
+            CLAVE_TRANSFERENCIA_CVU, CLAVE_TRANSFERENCIA_ALIAS, CLAVE_TRANSFERENCIA_TITULAR);
 
     private final ConfiguracionRepository configuracionRepository;
     private final ConfiguracionHistorialRepository configuracionHistorialRepository;
@@ -72,6 +85,60 @@ public class ConfiguracionService {
         return configuracionHistorialRepository.findByClaveOrderByFechaDesc(clave);
     }
 
+    public boolean esClaveTransferencia(String clave) {
+        return CLAVES_TRANSFERENCIA.contains(clave);
+    }
+
+    public DatosTransferenciaResponse obtenerDatosTransferencia() {
+        return new DatosTransferenciaResponse(
+                valorOpcional(CLAVE_TRANSFERENCIA_CVU),
+                valorOpcional(CLAVE_TRANSFERENCIA_ALIAS),
+                valorOpcional(CLAVE_TRANSFERENCIA_TITULAR));
+    }
+
+    @Transactional
+    public DatosTransferenciaResponse guardarDatosTransferencia(DatosTransferenciaRequest request) {
+        if (request == null) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
+                    "Los datos de transferencia son obligatorios");
+        }
+
+        String cvu = request.cvu() == null ? null : request.cvu().trim();
+        String alias = request.alias() == null ? null : request.alias().trim();
+        String titular = request.titular() == null ? null : request.titular().trim();
+
+        if (cvu == null || !cvu.matches("\\d{22}")) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
+                    "El CVU debe tener exactamente 22 dígitos numéricos");
+        }
+        if (alias == null || !alias.matches("[A-Za-z0-9.-]{6,20}")) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
+                    "El alias debe tener entre 6 y 20 caracteres, sin espacios, y solo puede "
+                            + "contener letras, números, puntos y guiones");
+        }
+        if (titular == null || titular.isBlank()) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
+                    "El titular de la cuenta es obligatorio");
+        }
+        if (titular.length() > 100) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
+                    "El titular de la cuenta no puede superar los 100 caracteres");
+        }
+
+        guardarOActualizar(CLAVE_TRANSFERENCIA_CVU, cvu,
+                "CVU o CBU de la cuenta para transferencias");
+        guardarOActualizar(CLAVE_TRANSFERENCIA_ALIAS, alias,
+                "Alias de la cuenta para transferencias");
+        guardarOActualizar(CLAVE_TRANSFERENCIA_TITULAR, titular,
+                "Titular de la cuenta para transferencias");
+        return obtenerDatosTransferencia();
+    }
+
+    private String valorOpcional(String clave) {
+        String valor = obtenerValor(clave);
+        return valor == null || valor.isBlank() ? null : valor;
+    }
+
     private void registrarHistorial(String clave, String valorAnterior, String valorNuevo) {
         try {
             String username = SecurityContextHolder.getContext().getAuthentication() != null
@@ -93,6 +160,19 @@ public class ConfiguracionService {
             guardarOActualizar(CLAVE_COTIZACION_USD_ARS, COTIZACION_INICIAL,
                     "Cotización del dólar (USD → ARS) usada para convertir precios");
             log.info("Clave {} creada con valor inicial {}", CLAVE_COTIZACION_USD_ARS, COTIZACION_INICIAL);
+        }
+        sembrarSiNoExiste(CLAVE_TRANSFERENCIA_CVU, CVU_INICIAL,
+                "CVU o CBU de la cuenta para transferencias");
+        sembrarSiNoExiste(CLAVE_TRANSFERENCIA_ALIAS, ALIAS_INICIAL,
+                "Alias de la cuenta para transferencias");
+        sembrarSiNoExiste(CLAVE_TRANSFERENCIA_TITULAR, TITULAR_INICIAL,
+                "Titular de la cuenta para transferencias");
+    }
+
+    private void sembrarSiNoExiste(String clave, String valor, String descripcion) {
+        if (!configuracionRepository.existsByClave(clave)) {
+            guardarOActualizar(clave, valor, descripcion);
+            log.info("Clave {} creada con valor inicial {}", clave, valor);
         }
     }
 

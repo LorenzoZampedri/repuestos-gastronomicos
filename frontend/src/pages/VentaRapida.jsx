@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Minus, Trash2, ShoppingCart, ArrowLeft, CreditCard } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { UMBRAL_DESCUENTO, PCT_DESCUENTO } from '../context/CurrencyContext';
 import { formatMoney } from '../utils/format';
 
@@ -16,6 +17,7 @@ const precioUnitarioItem = (item) => {
 
 const VentaRapida = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [productos, setProductos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [busqueda, setBusqueda] = useState('');
@@ -27,6 +29,12 @@ const VentaRapida = () => {
   const [tipoOperacion, setTipoOperacion] = useState('VENTA'); // VENTA | DEUDA
   const [montoDeuda, setMontoDeuda] = useState('');
   const [observacionesDeuda, setObservacionesDeuda] = useState('');
+
+  useEffect(() => {
+    if ((!isAdmin() || !clienteSeleccionado) && metodoPago === 'CUENTA_CORRIENTE') {
+      setMetodoPago('EFECTIVO');
+    }
+  }, [clienteSeleccionado, metodoPago, isAdmin]);
 
   useEffect(() => {
     fetchProductos();
@@ -109,6 +117,11 @@ const VentaRapida = () => {
 
     const handleCompra = async () => {
     if (tipoOperacion === 'DEUDA') {
+      if (!isAdmin()) {
+        toast.error('Solo un administrador puede cargar deudas');
+        setTipoOperacion('VENTA');
+        return;
+      }
       if (!clienteSeleccionado) {
         toast.error('Seleccioná un cliente para cargar la deuda');
         return;
@@ -136,6 +149,12 @@ const VentaRapida = () => {
 
     if (carrito.length === 0) {
       toast.error('El carrito está vacío');
+      return;
+    }
+
+    if (metodoPago === 'CUENTA_CORRIENTE' && !clienteSeleccionado) {
+      toast.error('Para vender a cuenta corriente tenés que seleccionar un cliente registrado');
+      setMetodoPago('EFECTIVO');
       return;
     }
 
@@ -183,18 +202,20 @@ const VentaRapida = () => {
               {tipoOperacion === 'VENTA' ? 'Venta Rápida' : 'Cargar Deuda'}
             </h1>
           </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor="tipo-operacion" className="text-sm text-gray-700">Tipo:</label>
-            <select
-              id="tipo-operacion"
-              value={tipoOperacion}
-              onChange={(e) => setTipoOperacion(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="VENTA">Venta</option>
-              <option value="DEUDA">Cargar deuda</option>
-            </select>
-          </div>
+          {isAdmin() && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="tipo-operacion" className="text-sm text-gray-700">Tipo:</label>
+              <select
+                id="tipo-operacion"
+                value={tipoOperacion}
+                onChange={(e) => setTipoOperacion(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              >
+                <option value="VENTA">Venta</option>
+                <option value="DEUDA">Cargar deuda</option>
+              </select>
+            </div>
+          )}
         </div>
 
         {tipoOperacion === 'VENTA' && (
@@ -423,7 +444,9 @@ const VentaRapida = () => {
               <option value="EFECTIVO">Efectivo</option>
               <option value="TARJETA">Tarjeta</option>
               <option value="TRANSFERENCIA">Transferencia</option>
-              <option value="CUENTA_CORRIENTE">Cuenta corriente</option>
+              {isAdmin() && clienteSeleccionado && (
+                <option value="CUENTA_CORRIENTE">Cuenta corriente</option>
+              )}
             </select>
           </div>
 

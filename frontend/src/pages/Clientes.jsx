@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom';
 import { Search, Plus, Edit2, Trash2, Users, Phone, Mail, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import EmptyState from '../components/EmptyState';
 import { formatMoney } from '../utils/format';
 
 const Clientes = () => {
+  const { isAdmin } = useAuth();
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -146,13 +148,15 @@ const Clientes = () => {
                 >
                   <Edit2 className="w-4 h-4" aria-hidden="true" />
                 </Link>
-                <button
-                  onClick={() => handleEliminar(cliente.id)}
-                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-                  aria-label={`Eliminar ${cliente.nombre}`}
-                >
-                  <Trash2 className="w-4 h-4" aria-hidden="true" />
-                </button>
+                {isAdmin() && (
+                  <button
+                    onClick={() => handleEliminar(cliente.id)}
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                    aria-label={`Eliminar ${cliente.nombre}`}
+                  >
+                    <Trash2 className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                )}
               </div>
             </div>
             
@@ -171,7 +175,7 @@ const Clientes = () => {
               )}
             </div>
 
-            {cliente.saldoCorriente !== 0 && (
+            {isAdmin() && cliente.saldoCorriente !== 0 && (
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-500">

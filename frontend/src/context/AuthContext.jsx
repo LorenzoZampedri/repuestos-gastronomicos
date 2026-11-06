@@ -3,6 +3,14 @@ import api from '../services/api';
 
 const AuthContext = createContext(null);
 
+const HOME_POR_ROL = {
+  ADMIN: '/',
+  EMPLEADO: '/ventas/nueva',
+  CLIENTE: '/catalogo',
+};
+
+export const homePorRol = (rol) => HOME_POR_ROL[rol] || '/login';
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -50,8 +58,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAdmin = () => user?.rol === 'ADMIN';
-  const isVendedor = () => user?.rol === 'VENDEDOR' || user?.rol === 'ADMIN';
-  const isOperario = () => user?.rol === 'OPERARIO' || user?.rol === 'ADMIN';
+  const isEmpleado = () => user?.rol === 'EMPLEADO';
+  const isCliente = () => user?.rol === 'CLIENTE';
+  const hasRole = (...roles) => roles.includes(user?.rol);
 
   return (
     <AuthContext.Provider value={{ 
@@ -61,8 +70,10 @@ export const AuthProvider = ({ children }) => {
       login, 
       logout, 
       isAdmin, 
-      isVendedor, 
-      isOperario 
+      isEmpleado,
+      isCliente,
+      hasRole,
+      homePorRol: () => homePorRol(user?.rol),
     }}>
       {children}
     </AuthContext.Provider>

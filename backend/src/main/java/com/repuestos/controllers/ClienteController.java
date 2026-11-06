@@ -1,7 +1,8 @@
 package com.repuestos.controllers;
 
+import com.repuestos.dto.ClienteResponse;
+import com.repuestos.dto.PagoResponse;
 import com.repuestos.models.Cliente;
-import com.repuestos.models.Pago;
 import com.repuestos.models.Usuario;
 import com.repuestos.services.ClienteService;
 import com.repuestos.services.UsuarioService;
@@ -17,60 +18,74 @@ import java.util.List;
 @RequestMapping("/api/clientes")
 @RequiredArgsConstructor
 public class ClienteController {
-    
+
     private final ClienteService clienteService;
     private final UsuarioService usuarioService;
-    
+
     @GetMapping
-    public ResponseEntity<List<Cliente>> listarTodos() {
-        return ResponseEntity.ok(clienteService.listarTodos());
+    public ResponseEntity<List<ClienteResponse>> listarTodos() {
+        boolean incluirCuentaCorriente = usuarioService.esAdminActual();
+        return ResponseEntity.ok(clienteService.listarTodos().stream()
+                .map(cliente -> ClienteResponse.desde(cliente, incluirCuentaCorriente))
+                .toList());
     }
-    
+
     @GetMapping("/{id}")
-    public ResponseEntity<Cliente> buscarPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(clienteService.buscarPorId(id));
+    public ResponseEntity<ClienteResponse> buscarPorId(@PathVariable Long id) {
+        return ResponseEntity.ok(ClienteResponse.desde(
+                clienteService.buscarPorId(id), usuarioService.esAdminActual()));
     }
-    
+
     @GetMapping("/buscar")
-    public ResponseEntity<List<Cliente>> buscar(@RequestParam String q) {
-        return ResponseEntity.ok(clienteService.buscar(q));
+    public ResponseEntity<List<ClienteResponse>> buscar(@RequestParam String q) {
+        boolean incluirCuentaCorriente = usuarioService.esAdminActual();
+        return ResponseEntity.ok(clienteService.buscar(q).stream()
+                .map(cliente -> ClienteResponse.desde(cliente, incluirCuentaCorriente))
+                .toList());
     }
-    
+
     @GetMapping("/deudores")
-    public ResponseEntity<List<Cliente>> deudores() {
-        return ResponseEntity.ok(clienteService.clientesConDeuda());
+    public ResponseEntity<List<ClienteResponse>> deudores() {
+        return ResponseEntity.ok(clienteService.clientesConDeuda().stream()
+                .map(cliente -> ClienteResponse.desde(cliente, true))
+                .toList());
     }
-    
+
     @PostMapping
-    public ResponseEntity<Cliente> crear(@RequestBody Cliente cliente) {
-        return ResponseEntity.ok(clienteService.guardar(cliente));
+    public ResponseEntity<ClienteResponse> crear(@RequestBody Cliente cliente) {
+        return ResponseEntity.ok(ClienteResponse.desde(
+                clienteService.guardar(cliente), usuarioService.esAdminActual()));
     }
-    
+
     @PutMapping("/{id}")
-    public ResponseEntity<Cliente> actualizar(@PathVariable Long id, @RequestBody Cliente cliente) {
-        return ResponseEntity.ok(clienteService.actualizar(id, cliente));
+    public ResponseEntity<ClienteResponse> actualizar(@PathVariable Long id, @RequestBody Cliente cliente) {
+        return ResponseEntity.ok(ClienteResponse.desde(
+                clienteService.actualizar(id, cliente), usuarioService.esAdminActual()));
     }
-    
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         clienteService.eliminar(id);
         return ResponseEntity.ok().build();
     }
-    
+
     @PatchMapping("/{id}/saldo")
-    public ResponseEntity<Cliente> ajustarSaldo(@PathVariable Long id, @RequestBody AjustarSaldoRequest request) {
+    public ResponseEntity<ClienteResponse> ajustarSaldo(@PathVariable Long id,
+                                                         @RequestBody AjustarSaldoRequest request) {
         Usuario usuario = "restar".equals(request.getTipo())
                 ? usuarioService.verificarPasswordActual(request.getPassword())
                 : null;
-        return ResponseEntity.ok(clienteService.ajustarSaldo(
-                id, request.getMonto(), request.getTipo(), request.getMetodoPago(), usuario));
+        return ResponseEntity.ok(ClienteResponse.desde(clienteService.ajustarSaldo(
+                id, request.getMonto(), request.getTipo(), request.getMetodoPago(), usuario), true));
     }
-    
+
     @GetMapping("/{id}/pagos")
-    public ResponseEntity<List<Pago>> pagosPorCliente(@PathVariable Long id) {
-        return ResponseEntity.ok(clienteService.pagosPorCliente(id));
+    public ResponseEntity<List<PagoResponse>> pagosPorCliente(@PathVariable Long id) {
+        return ResponseEntity.ok(clienteService.pagosPorCliente(id).stream()
+                .map(PagoResponse::desde)
+                .toList());
     }
-    
+
     @Data
     static class AjustarSaldoRequest {
         private BigDecimal monto;

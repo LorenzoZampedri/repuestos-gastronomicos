@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth, homePorRol } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 
@@ -12,6 +12,7 @@ import PageTransition from './components/PageTransition';
 
 // Pages
 import Login from './pages/Login';
+import Registro from './pages/Registro';
 import Dashboard from './pages/Dashboard';
 import Productos from './pages/Productos';
 import ProductoForm from './pages/ProductoForm';
@@ -22,9 +23,12 @@ import ClienteForm from './pages/ClienteForm';
 import CuentasCorrientes from './pages/CuentasCorrientes';
 import Catalogo from './pages/Catalogo';
 import Configuracion from './pages/Configuracion';
+import Usuarios from './pages/Usuarios';
+import MisPedidos from './pages/MisPedidos';
+import Pedidos from './pages/Pedidos';
 
 // Protected Route Component
-const ProtectedRoute = ({ children, requiredRole }) => {
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
@@ -39,8 +43,8 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     return <Navigate to="/login" replace />;
   }
   
-  if (requiredRole && user.rol !== requiredRole && user.rol !== 'ADMIN') {
-    return <Navigate to="/" replace />;
+  if (allowedRoles && !allowedRoles.includes(user.rol)) {
+    return <Navigate to={homePorRol(user.rol)} replace />;
   }
   
   return children;
@@ -59,10 +63,20 @@ const PublicRoute = ({ children }) => {
   }
   
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={homePorRol(user.rol)} replace />;
   }
   
   return children;
+};
+
+const RoleHome = () => {
+  const { user } = useAuth();
+  return user?.rol === 'ADMIN' ? <Dashboard /> : <Navigate to={homePorRol(user?.rol)} replace />;
+};
+
+const CatchAll = () => {
+  const { user } = useAuth();
+  return <Navigate to={user ? homePorRol(user.rol) : '/catalogo'} replace />;
 };
 
 function App() {
@@ -104,54 +118,64 @@ function App() {
               </PageTransition>
             </PublicRoute>
           } />
+
+          <Route path="/registro" element={
+            <PublicRoute>
+              <PageTransition>
+                <Registro />
+              </PageTransition>
+            </PublicRoute>
+          } />
           
           <Route path="/catalogo" element={
             <PublicLayout>
               <Catalogo />
             </PublicLayout>
           } />
+
+          <Route path="/mis-pedidos" element={
+            <ProtectedRoute allowedRoles={['CLIENTE']}>
+              <PublicLayout>
+                <MisPedidos />
+              </PublicLayout>
+            </ProtectedRoute>
+          } />
           
           {/* Protected Routes */}
           <Route path="/" element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMIN', 'EMPLEADO']}>
               <Layout />
             </ProtectedRoute>
           }>
-            <Route index element={<Dashboard />} />
+            <Route index element={<RoleHome />} />
             <Route path="productos" element={<Productos />} />
             <Route path="productos/nuevo" element={<ProductoForm />} />
             <Route path="productos/:id" element={<ProductoForm />} />
+            <Route path="pedidos" element={<Pedidos />} />
             <Route path="ventas" element={<Ventas />} />
             <Route path="ventas/nueva" element={<VentaRapida />} />
-            <Route path="clientes" element={
-              <ProtectedRoute requiredRole="ADMIN">
-                <Clientes />
-              </ProtectedRoute>
-            } />
-            <Route path="clientes/nuevo" element={
-              <ProtectedRoute requiredRole="ADMIN">
-                <ClienteForm />
-              </ProtectedRoute>
-            } />
-            <Route path="clientes/:id" element={
-              <ProtectedRoute requiredRole="ADMIN">
-                <ClienteForm />
-              </ProtectedRoute>
-            } />
+            <Route path="clientes" element={<Clientes />} />
+            <Route path="clientes/nuevo" element={<ClienteForm />} />
+            <Route path="clientes/:id" element={<ClienteForm />} />
             <Route path="cuentas-corrientes" element={
-              <ProtectedRoute requiredRole="ADMIN">
+              <ProtectedRoute allowedRoles={['ADMIN']}>
                 <CuentasCorrientes />
               </ProtectedRoute>
             } />
+            <Route path="usuarios" element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <Usuarios />
+              </ProtectedRoute>
+            } />
             <Route path="configuracion" element={
-              <ProtectedRoute requiredRole="ADMIN">
+              <ProtectedRoute allowedRoles={['ADMIN']}>
                 <Configuracion />
               </ProtectedRoute>
             } />
           </Route>
           
           {/* Catch all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<CatchAll />} />
         </Routes>
         </Router>
       </CartProvider>

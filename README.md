@@ -12,8 +12,21 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 - **Venta rápida** - Flujo optimizado para mostrador
 - **Cuentas corrientes** - Gestión de deudas y pagos
 - **Catálogo público** - Web para clientes
-- **Multi-rol** - Admin, Vendedor, Operario
+- **Pedidos online** - Carrito, seguimiento y conversión a venta
+- **Multi-rol** - Admin, Empleado y Cliente
 - **Responsive** - Funciona en celular y PC
+
+## 🔐 Roles y permisos
+
+| Rol | Alcance |
+|-----|---------|
+| **ADMIN** | Acceso completo: dashboard, productos, ventas, clientes, cuentas corrientes, usuarios y configuración. |
+| **EMPLEADO** | Productos (crear/editar), ventas con efectivo/tarjeta/transferencia/otro y clientes (crear/editar). No puede vender a cuenta corriente (solo ADMIN), eliminar productos/clientes, anular ventas, ver cuentas corrientes ni administrar usuarios. |
+| **CLIENTE** | Catálogo público, carrito, pedidos online y consulta por WhatsApp. Puede registrarse desde `/registro` y hace seguimiento en `/mis-pedidos`. |
+
+Los usuarios inactivos no pueden iniciar sesión. Un administrador no puede
+desactivarse a sí mismo, quitarse el rol ADMIN ni dejar el sistema sin al menos
+un ADMIN activo.
 
 ## 🛠️ Stack Técnico
 
@@ -49,6 +62,11 @@ docker compose ps
 
 **Credenciales iniciales (se crean automáticamente):** admin / admin123
 
+> Definí `ADMIN_PASSWORD` en `.env` antes del primer arranque para reemplazar la
+> contraseña inicial. Si no se define, se usa `admin123` y el backend registra
+> una advertencia. Una vez creado el usuario `admin`, cambiarlo desde la app con
+> el botón de contraseña del menú lateral.
+
 > **⚠️ Solo una instancia a la vez:** los puertos 3000/8080/5432 son fijos y los
 > contenedores comparten nombres. Si ya tenés otra copia del proyecto levantada
 > (carpeta vieja o versión anterior), parala antes de levantar una nueva:
@@ -74,9 +92,130 @@ repuestos-gastronomicos/
 └── README_DOCKER.md  # Guía completa Docker
 ```
 
+## 👤 Gestión de usuarios
+
+Los administradores pueden crear, editar, activar/desactivar y restablecer
+contraseñas desde **Usuarios** en el panel. El registro público (`/registro`)
+siempre crea usuarios con rol `CLIENTE`.
+
+Endpoints principales:
+
+- `POST /api/auth/register` - registro público de clientes.
+- `PUT /api/auth/password` - cambio de contraseña del usuario autenticado.
+- `GET/POST /api/usuarios` - listado y alta de usuarios (solo ADMIN).
+- `PUT /api/usuarios/{id}` - edición de nombre, email, rol y estado (solo ADMIN).
+- `PUT /api/usuarios/{id}/password` - restablecimiento de contraseña (solo ADMIN).
+- `PATCH /api/usuarios/{id}/activo` - activar o desactivar usuario (solo ADMIN).
+- `PUT /api/usuarios/{id}/cliente` - vincular un usuario CLIENTE a una ficha de cliente (solo ADMIN).
+
+## 🛒 Pedidos online
+
+Un usuario `CLIENTE` arma una compra desde el carrito (botón **Comprar** en el
+panel del carrito, modal **Confirmar compra**). Antes de enviar debe elegir uno de
+los métodos de pago disponibles para compras online: **Efectivo**, **Tarjeta** o
+**Transferencia**. `CUENTA_CORRIENTE` y `OTRO` no están disponibles para el
+cliente ni por UI ni por API.
+
+La compra queda `PENDIENTE`, **no reserva stock, no genera una venta y no modifica
+la cuenta corriente**: recién al aprobarse se registra la venta. Un `ADMIN` o
+`EMPLEADO` la revisa en `/pedidos` y puede aprobarla o rechazarla con un motivo.
+
+Flujo:
+
+1. El `CLIENTE` envía la compra desde el carrito (mínimo 1 y máximo 50 líneas,
+   cantidad por producto 1 a 9999, con stock validado al momento de pedir) y elige
+   el método de pago.
+2. Aparece en `/mis-pedidos` (para el cliente) y en `/pedidos` (para el panel),
+   con badge de pendientes en el menú.
+3. El empleado/administrador revisa el detalle en **solo lectura**. No puede
+   modificar productos, cantidades ni el método de pago: es una medida anti-fraude.
+   El detalle muestra el método elegido y el stock actual como indicador.
+4. Al **aprobar**, se revalida stock y precios, se descuenta el stock, se crea la
+   venta con el cliente y el usuario que aprueba, y se registra el pago por el
+   total con **el método que eligió el cliente**. La venta queda `PAGADA`, el saldo
+   del cliente en 0 y el pago aparece en su historial. La venta queda con
+   observaciones `Pedido #id`.
+5. Si falta stock al aprobar, la aprobación falla con un mensaje que nombra el
+   producto y la compra sigue `PENDIENTE`. El staff no la corrige: puede
+   rechazarla con un motivo para que el cliente vuelva a comprar. Dos
+   aprobaciones simultáneas generan una sola venta (bloqueo del pedido).
+6. `RECHAZADO` (con motivo) y `CANCELADO` (por el cliente) no tocan stock ni
+   saldo.
+
+Los pedidos anteriores a la selección de método de pago no tienen método guardado.
+Esos pedidos `PENDIENTE` **no se pueden aprobar**: solo rechazar. La API responde
+`409` indicando que el pedido es anterior y la UI oculta el botón de aprobar.
+
+### Datos de transferencia
+
+Cuando el cliente elige **Transferencia**, ve el bloque **MP · Mercado Pago** con
+CVU, alias y titular de la cuenta, con botones para copiar CVU y alias. Los mismos
+datos se muestran en la pantalla de éxito y en `/mis-pedidos` mientras la compra
+siga pendiente y el método sea transferencia.
+
+Los datos **no están fijos en el frontend**: se editan desde **Configuración** →
+sección desplegable **Datos de transferencia** (solo ADMIN), en un único formulario
+con CVU (22 dígitos), alias (6 a 20 caracteres) y titular. Se guardan en la tabla
+de configuración como `transferencia_cvu`, `transferencia_alias` y
+`transferencia_titular`; el sembrado inicial solo ocurre si la clave no existe y
+nunca pisa un valor editado por el admin.
+
+El cliente puede seguir el estado en `/mis-pedidos` y cancelar mientras siga
+`PENDIENTE`. Al registrarse, cada usuario `CLIENTE` obtiene automáticamente su
+ficha de cliente (sin duplicarla nunca); un ADMIN puede vincularlo a una ficha
+existente desde `/usuarios`, regla: el cliente destino debe estar activo y no
+tener otro usuario vinculado, y si el cliente actual tiene ventas o pagos la
+vinculación se rechaza.
+
+### Venta anónima vs. venta con cliente
+
+| | Venta anónima (Venta Rápida sin cliente) | Venta con cliente (pedido o venta con cliente) |
+|---|---|---|
+| Origen | Venta Rápida / API con `clienteId = null` | Pedido convertido o venta con cliente elegido |
+| Stock | Se descuenta | Se descuenta |
+| Cuenta corriente | **No existe**: no toca ningún saldo | `CUENTA_CORRIENTE` suma el total al `saldoCorriente` |
+| Pago | Queda ligado solo a la venta | Queda ligado a la venta y al cliente (visible en su historial) |
+| Método `CUENTA_CORRIENTE` | **Rechazado** con 400: *"Para vender a cuenta corriente tenés que seleccionar un cliente registrado"* | Permitido **solo a ADMIN** (deja la venta `PENDIENTE` y genera deuda). Un EMPLEADO recibe 403: *"Solo un administrador puede vender a cuenta corriente"* |
+
+En la UI de Venta Rápida la opción “Cuenta corriente” solo aparece para un
+usuario ADMIN con un cliente seleccionado y, si se deselecciona el cliente o el
+usuario no es ADMIN, el método vuelve a `EFECTIVO`.
+
+Los pedidos online **nunca** se aprueban a cuenta corriente: el cliente solo
+puede elegir efectivo, tarjeta o transferencia y la aprobación usa ese método.
+
+### Permisos de los endpoints de pedidos
+
+| Endpoint | ADMIN | EMPLEADO | CLIENTE | Sin token |
+|---|---|---|---|---|
+| `POST /api/pedidos` | ✗ 403 | ✗ 403 | ✓ | 401 |
+| `GET /api/pedidos/mios`, `/mios/{id}`, `/mios/contacto`, `PUT /mios/{id}/cancelar` | ✗ 403 | ✗ 403 | ✓ | 401 |
+| `GET /api/pedidos?estado=`, `GET /api/pedidos/{id}`, `GET /api/pedidos/pendientes/count` | ✓ | ✓ | ✗ 403 | 401 |
+| `POST /api/pedidos/{id}/convertir`, `POST /api/pedidos/{id}/rechazar` | ✓ | ✓ | ✗ 403 | 401 |
+
+Un pedido de otro cliente responde `404` (no `403`) para no revelar que existe,
+y el `saldoCorriente` solo viaja en las respuestas hacia `ADMIN`.
+
+Endpoints principales:
+
+- `POST /api/pedidos` - crear compra: `{items:[{productoId, cantidad}], telefono, observaciones, metodoPago}`; `metodoPago` debe ser `EFECTIVO`, `TARJETA` o `TRANSFERENCIA` (solo CLIENTE).
+- `GET /api/pedidos/mios` - historial propio (solo CLIENTE).
+- `GET /api/pedidos/mios/{id}` - detalle propio (solo CLIENTE).
+- `GET /api/pedidos/mios/contacto` - teléfono/dirección precargados (solo CLIENTE).
+- `PUT /api/pedidos/mios/{id}/cancelar` - cancelar pedido pendiente propio.
+- `GET /api/pedidos?estado=PENDIENTE` - listado para ADMIN/EMPLEADO.
+- `GET /api/pedidos/{id}` - detalle para ADMIN/EMPLEADO.
+- `GET /api/pedidos/pendientes/count` - contador para el menú.
+- `POST /api/pedidos/{id}/convertir` - sin body útil: usa las líneas y el método guardados en el pedido (cualquier `metodoPago` o `items` enviado se ignora).
+- `POST /api/pedidos/{id}/rechazar` - `{motivo}` obligatorio.
+- `GET /api/configuracion/publica` - configuración pública, incluye `datosTransferencia: {cvu, alias, titular}`.
+- `PUT /api/configuracion/transferencia` - `{cvu, alias, titular}` (solo ADMIN) transaccional, con validaciones e historial.
+
 ## 📚 Documentación
 
 - [Guía Docker](README_DOCKER.md) - Instrucciones para levantar el proyecto
+- [Resumen de pedidos online](RESUMEN_PEDIDOS.md) - Implementación y verificación
+- [Resumen de roles](RESUMEN_ROLES.md) - Detalle de implementación y verificación
 - [API Docs](http://localhost:8080/swagger-ui.html) - Documentación Swagger
 
 ## 👥 Equipo

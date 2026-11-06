@@ -5,7 +5,11 @@ import com.repuestos.models.Pago;
 import com.repuestos.models.Usuario;
 import com.repuestos.repositories.ClienteRepository;
 import com.repuestos.repositories.PagoRepository;
+import com.repuestos.repositories.PedidoRepository;
+import com.repuestos.repositories.UsuarioRepository;
+import com.repuestos.repositories.VentaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,8 +22,92 @@ public class ClienteService {
     
     private final ClienteRepository clienteRepository;
     private final PagoRepository pagoRepository;
+    private final PedidoRepository pedidoRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final VentaRepository ventaRepository;
     private final VentaService ventaService;
+
+    @Transactional
+    public Cliente asegurarClienteParaUsuario(Usuario usuario) {
+        if (usuario == null) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
+                    "El usuario es obligatorio");
+        }
+        if (usuario.getCliente() != null) {
+            return usuario.getCliente();
+        }
+
+        Cliente cliente = clienteRepository.save(Cliente.builder()
+                .nombre(usuario.getNombre())
+                .email(usuario.getEmail())
+                .observaciones("Creado automáticamente desde el registro web")
+                .saldoCorriente(BigDecimal.ZERO)
+                .activo(true)
+                .build());
+
+        usuario.setCliente(cliente);
+        usuarioRepository.save(usuario);
+        return cliente;
+    }
     
+    @Transactional
+    public Usuario vincularClienteAUsuario(Long usuarioId, Long clienteId) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND,
+                        "Usuario no encontrado"));
+        if (usuario.getRol() != Usuario.Rol.CLIENTE) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
+                    "Solo los usuarios CLIENTE pueden vincularse a un cliente");
+        }
+
+        Cliente destino = clienteRepository.findById(clienteId)
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND,
+                        "Cliente no encontrado"));
+        if (!Boolean.TRUE.equals(destino.getActivo())) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
+                    "El cliente está inhabilitado");
+        }
+
+        usuarioRepository.findByClienteId(clienteId)
+                .filter(vinculado -> !vinculado.getId().equals(usuarioId))
+                .ifPresent(vinculado -> {
+                    throw new NegocioException(HttpStatus.CONFLICT,
+                            "El cliente ya está vinculado a otro usuario");
+                });
+
+        Cliente anterior = usuario.getCliente();
+        if (anterior != null && anterior.getId().equals(clienteId)) {
+            return usuario;
+        }
+
+        if (anterior != null && clienteTieneHistorial(anterior)) {
+            throw new NegocioException(HttpStatus.CONFLICT,
+                    "No se puede desvincular: el cliente actual tiene ventas o pagos registrados. "
+                            + "Revisá su cuenta corriente antes de cambiar la vinculación");
+        }
+
+        if (anterior != null) {
+            pedidoRepository.reasignarClienteDeUsuario(
+                    usuarioId, anterior.getId(), destino);
+        }
+
+        usuario.setCliente(destino);
+        Usuario guardado = usuarioRepository.save(usuario);
+
+        if (anterior != null && !clienteTieneHistorial(anterior)) {
+            anterior.setActivo(false);
+            clienteRepository.save(anterior);
+        }
+        return guardado;
+    }
+
+    /** Un cliente con ventas o pagos nunca se da de baja ni se desvincula automáticamente. */
+    private boolean clienteTieneHistorial(Cliente cliente) {
+        return ventaRepository.existsByClienteId(cliente.getId())
+                || pagoRepository.countByCliente_IdOrVenta_Cliente_Id(
+                        cliente.getId(), cliente.getId()) > 0;
+    }
+
     public List<Cliente> listarTodos() {
         return clienteRepository.findByActivoTrueOrderByIdAsc();
     }

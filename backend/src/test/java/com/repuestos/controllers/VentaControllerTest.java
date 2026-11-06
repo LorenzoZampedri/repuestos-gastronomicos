@@ -32,7 +32,8 @@ class VentaControllerTest {
     @Test
     void registrarPagoVerificaPasswordYRegistraUsuarioQueAutoriza() {
         Usuario autorizador = Usuario.builder().id(7L).username("admin").nombre("Admin").build();
-        Pago pagoGuardado = Pago.builder().id(11L).monto(new BigDecimal("150.00")).build();
+        Pago pagoGuardado = Pago.builder().id(11L).monto(new BigDecimal("150.00"))
+                .metodoPago(Pago.MetodoPago.EFECTIVO).moneda("ARS").build();
 
         when(usuarioService.verificarPasswordActual("clave")).thenReturn(autorizador);
         when(ventaService.registrarPago(any(), any())).thenReturn(pagoGuardado);

@@ -14,7 +14,7 @@ CREATE TABLE usuarios (
     password_hash VARCHAR(255) NOT NULL,
     nombre VARCHAR(100) NOT NULL,
     email VARCHAR(100),
-    rol VARCHAR(20) NOT NULL CHECK (rol IN ('ADMIN', 'VENDEDOR', 'OPERARIO')),
+    rol VARCHAR(20) NOT NULL CHECK (rol IN ('ADMIN', 'EMPLEADO', 'CLIENTE')),
     activo BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -69,6 +69,13 @@ CREATE TABLE clientes (
 );
 
 -- ═══════════════════════════════════════════════════════════
+-- VINCULACIÓN USUARIO CLIENTE ↔ FICHA DE CLIENTE
+-- ═══════════════════════════════════════════════════════════
+-- Un usuario CLIENTE puede estar vinculado a una única ficha de cliente.
+ALTER TABLE usuarios
+    ADD COLUMN cliente_id INTEGER UNIQUE REFERENCES clientes(id);
+
+-- ═══════════════════════════════════════════════════════════
 -- TABLA: ventas
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE ventas (
@@ -82,6 +89,45 @@ CREATE TABLE ventas (
     observaciones TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ═══════════════════════════════════════════════════════════
+-- TABLA: pedidos (pedidos online de clientes)
+-- ═══════════════════════════════════════════════════════════
+CREATE TABLE pedidos (
+    id SERIAL PRIMARY KEY,
+    cliente_id INTEGER NOT NULL REFERENCES clientes(id),
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+    fecha TIMESTAMP NOT NULL,
+    estado VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE'
+        CHECK (estado IN ('PENDIENTE', 'CONVERTIDO', 'RECHAZADO', 'CANCELADO')),
+    metodo_pago VARCHAR(20),
+    observaciones TEXT,
+    motivo_rechazo VARCHAR(500),
+    total_estimado DECIMAL(10,2) NOT NULL DEFAULT 0,
+    venta_id INTEGER UNIQUE REFERENCES ventas(id),
+    resuelto_por_id INTEGER REFERENCES usuarios(id),
+    fecha_resolucion TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_pedidos_estado ON pedidos (estado);
+CREATE INDEX idx_pedidos_cliente ON pedidos (cliente_id);
+CREATE INDEX idx_pedidos_fecha ON pedidos (fecha);
+
+-- ═══════════════════════════════════════════════════════════
+-- TABLA: detalle_pedido
+-- ═══════════════════════════════════════════════════════════
+CREATE TABLE detalle_pedido (
+    id SERIAL PRIMARY KEY,
+    pedido_id INTEGER NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
+    producto_id INTEGER NOT NULL REFERENCES productos(id),
+    cantidad INTEGER NOT NULL CHECK (cantidad > 0),
+    nombre_producto VARCHAR(200) NOT NULL,
+    precio_unitario_estimado DECIMAL(10,2) NOT NULL
+);
+
+CREATE INDEX idx_detalle_pedido_pedido ON detalle_pedido (pedido_id);
 
 -- ═══════════════════════════════════════════════════════════
 -- TABLA: detalle_venta

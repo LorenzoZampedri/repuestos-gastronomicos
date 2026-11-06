@@ -139,12 +139,10 @@ const Productos = () => {
               : `${productos.length} productos en inventario`}
           </p>
         </div>
-        {isAdmin() && (
-          <Link to="/productos/nuevo" className="btn-primary flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            Nuevo Producto
-          </Link>
-        )}
+        <Link to="/productos/nuevo" className="btn-primary flex items-center gap-2">
+          <Plus className="w-5 h-5" />
+          Nuevo Producto
+        </Link>
       </div>
 
       {/* Search and Filters */}
@@ -254,23 +252,21 @@ const Productos = () => {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <Link
+                        to={`/productos/${producto.id}`}
+                        className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                        aria-label={`Editar ${producto.nombre}`}
+                      >
+                        <Edit2 className="w-4 h-4" aria-hidden="true" />
+                      </Link>
                       {isAdmin() && (
-                        <>
-                          <Link
-                            to={`/productos/${producto.id}`}
-                            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                            aria-label={`Editar ${producto.nombre}`}
-                          >
-                            <Edit2 className="w-4 h-4" aria-hidden="true" />
-                          </Link>
-                          <button
-                            onClick={() => handleEliminar(producto.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-                            aria-label={`Eliminar ${producto.nombre}`}
-                          >
-                            <Trash2 className="w-4 h-4" aria-hidden="true" />
-                          </button>
-                        </>
+                        <button
+                          onClick={() => handleEliminar(producto.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                          aria-label={`Eliminar ${producto.nombre}`}
+                        >
+                          <Trash2 className="w-4 h-4" aria-hidden="true" />
+                        </button>
                       )}
                     </div>
                   </td>

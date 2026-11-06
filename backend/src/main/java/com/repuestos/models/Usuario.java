@@ -35,6 +35,11 @@ public class Usuario {
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private Rol rol;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id", unique = true)
+    @JsonIgnore
+    private Cliente cliente;
     
     @Builder.Default
     private Boolean activo = true;
@@ -47,6 +52,6 @@ public class Usuario {
     private LocalDateTime updatedAt;
     
     public enum Rol {
-        ADMIN, VENDEDOR, OPERARIO
+        ADMIN, EMPLEADO, CLIENTE
     }
 }
