@@ -15,5 +15,6 @@ public record PedidoCrearRequest(
         @Size(min = 6, max = 20, message = "El teléfono debe tener entre 6 y 20 caracteres")
         String telefono,
         @Size(max = 1000, message = "Las observaciones no pueden superar los 1000 caracteres")
-        String observaciones) {
+        String observaciones,
+        String metodoPago) {
 }

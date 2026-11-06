@@ -1,7 +1,6 @@
 package com.repuestos.controllers;
 
 import com.repuestos.dto.PedidoContactoResponse;
-import com.repuestos.dto.PedidoConvertirRequest;
 import com.repuestos.dto.PedidoCrearRequest;
 import com.repuestos.dto.PedidoRechazarRequest;
 import com.repuestos.dto.PedidoResponse;
@@ -69,11 +68,9 @@ public class PedidoController {
     }
 
     @PostMapping("/{id}/convertir")
-    public ResponseEntity<PedidoResponse> convertir(
-            @PathVariable Long id,
-            @Valid @RequestBody PedidoConvertirRequest request) {
+    public ResponseEntity<PedidoResponse> convertir(@PathVariable Long id) {
         return ResponseEntity.ok(pedidoService.convertir(
-                id, request, usuarioService.usuarioActual(), usuarioService.esAdminActual()));
+                id, usuarioService.usuarioActual(), usuarioService.esAdminActual()));
     }
 
     @PostMapping("/{id}/rechazar")

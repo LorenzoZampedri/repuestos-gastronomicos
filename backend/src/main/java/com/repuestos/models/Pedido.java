@@ -42,6 +42,9 @@ public class Pedido {
     @Builder.Default
     private EstadoPedido estado = EstadoPedido.PENDIENTE;
 
+    @Column(length = 20)
+    private String metodoPago;
+
     @Column(columnDefinition = "TEXT")
     private String observaciones;
 

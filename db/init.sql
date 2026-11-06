@@ -100,6 +100,7 @@ CREATE TABLE pedidos (
     fecha TIMESTAMP NOT NULL,
     estado VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE'
         CHECK (estado IN ('PENDIENTE', 'CONVERTIDO', 'RECHAZADO', 'CANCELADO')),
+    metodo_pago VARCHAR(20),
     observaciones TEXT,
     motivo_rechazo VARCHAR(500),
     total_estimado DECIMAL(10,2) NOT NULL DEFAULT 0,

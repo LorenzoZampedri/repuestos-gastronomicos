@@ -1,5 +1,6 @@
 package com.repuestos.controllers;
 
+import com.repuestos.dto.DatosTransferenciaResponse;
 import com.repuestos.models.Cliente;
 import com.repuestos.models.Pago;
 import com.repuestos.models.Producto;
@@ -138,6 +139,43 @@ class SecurityRolesTest {
 
     @Test
     @WithMockUser(username = "empleado", roles = "EMPLEADO")
+    void empleadoNoPuedeVenderACuentaCorriente() throws Exception {
+        Usuario empleado = Usuario.builder().id(2L).username("empleado")
+                .nombre("Empleado").rol(Usuario.Rol.EMPLEADO).build();
+        when(usuarioService.buscarPorUsername("empleado")).thenReturn(empleado);
+        when(usuarioService.esAdminActual()).thenReturn(false);
+
+        mockMvc.perform(post("/api/ventas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"detalles\":[],\"metodoPago\":\"CUENTA_CORRIENTE\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(
+                        "Solo un administrador puede vender a cuenta corriente"));
+
+        verify(ventaService, never()).crearVentaConPago(any(), any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void adminPuedeVenderACuentaCorriente() throws Exception {
+        Usuario admin = Usuario.builder().id(1L).username("admin")
+                .nombre("Admin").rol(Usuario.Rol.ADMIN).build();
+        when(usuarioService.buscarPorUsername("admin")).thenReturn(admin);
+        when(usuarioService.esAdminActual()).thenReturn(true);
+        when(ventaService.crearVentaConPago(any(), any(), any(), any())).thenReturn(
+                Venta.builder().id(11L).usuario(admin).fecha(LocalDateTime.now())
+                        .total(new BigDecimal("100.00")).estado(Venta.EstadoVenta.PENDIENTE).build());
+
+        mockMvc.perform(post("/api/ventas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clienteId\":1,\"detalles\":[],"
+                                + "\"metodoPago\":\"CUENTA_CORRIENTE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(11));
+    }
+
+    @Test
+    @WithMockUser(username = "empleado", roles = "EMPLEADO")
     void empleadoNoAccedeAOperacionesDeAdministrador() throws Exception {
         mockMvc.perform(put("/api/ventas/1/anular")).andExpect(status().isForbidden());
         mockMvc.perform(delete("/api/clientes/1")).andExpect(status().isForbidden());
@@ -232,6 +270,88 @@ class SecurityRolesTest {
     }
 
     @Test
+    void configuracionPublicaIncluyeDatosDeTransferenciaSinToken() throws Exception {
+        when(configuracionService.getCotizacionUsdArs()).thenReturn(new BigDecimal("1000"));
+        when(configuracionService.obtenerValor(ConfiguracionService.CLAVE_WHATSAPP_NUMBER))
+                .thenReturn("5491112345678");
+        when(configuracionService.obtenerDatosTransferencia()).thenReturn(
+                new DatosTransferenciaResponse("0000003100098765432101",
+                        "gastorepuestos.mp", "Repuestos Gastronomicos Once"));
+
+        mockMvc.perform(get("/api/configuracion/publica"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datosTransferencia.cvu")
+                        .value("0000003100098765432101"))
+                .andExpect(jsonPath("$.datosTransferencia.alias")
+                        .value("gastorepuestos.mp"))
+                .andExpect(jsonPath("$.datosTransferencia.titular")
+                        .value("Repuestos Gastronomicos Once"));
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void adminPuedeEditarDatosDeTransferencia() throws Exception {
+        when(configuracionService.guardarDatosTransferencia(any())).thenReturn(
+                new DatosTransferenciaResponse("1111111111111111111111",
+                        "nuevo.alias", "Nuevo Titular"));
+
+        mockMvc.perform(put("/api/configuracion/transferencia")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"cvu\":\"1111111111111111111111\","
+                                + "\"alias\":\"nuevo.alias\",\"titular\":\"Nuevo Titular\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.alias").value("nuevo.alias"));
+    }
+
+    @Test
+    @WithMockUser(username = "empleado", roles = "EMPLEADO")
+    void empleadoNoPuedeEditarDatosDeTransferencia() throws Exception {
+        mockMvc.perform(put("/api/configuracion/transferencia")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"cvu\":\"1111111111111111111111\","
+                                + "\"alias\":\"nuevo.alias\",\"titular\":\"Nuevo Titular\"}"))
+                .andExpect(status().isForbidden());
+
+        verify(configuracionService, never()).guardarDatosTransferencia(any());
+    }
+
+    @Test
+    @WithMockUser(username = "cliente", roles = "CLIENTE")
+    void clienteNoPuedeEditarDatosDeTransferencia() throws Exception {
+        mockMvc.perform(put("/api/configuracion/transferencia")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"cvu\":\"1111111111111111111111\","
+                                + "\"alias\":\"nuevo.alias\",\"titular\":\"Nuevo Titular\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void sinTokenNoSePuedenEditarDatosDeTransferencia() throws Exception {
+        mockMvc.perform(put("/api/configuracion/transferencia")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"cvu\":\"1111111111111111111111\","
+                                + "\"alias\":\"nuevo.alias\",\"titular\":\"Nuevo Titular\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void elEndpointGenericoNoPermiteEditarClavesDeTransferencia() throws Exception {
+        when(configuracionService.esClaveTransferencia(
+                ConfiguracionService.CLAVE_TRANSFERENCIA_CVU)).thenReturn(true);
+
+        mockMvc.perform(put("/api/configuracion/transferencia_cvu")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"valor\":\"1111111111111111111111\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Los datos de transferencia se editan desde el formulario "
+                                + "de datos de transferencia"));
+
+        verify(configuracionService, never()).guardarOActualizar(any(), any(), any());
+    }
+
+    @Test
     void sinTokenNoSePuedenUsarPedidos() throws Exception {
         mockMvc.perform(post("/api/pedidos")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -313,8 +433,11 @@ class SecurityRolesTest {
                 .andExpect(jsonPath("$.count").value(3));
         mockMvc.perform(post("/api/pedidos/1/convertir")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"metodoPago\":\"CUENTA_CORRIENTE\"}"))
+                        .content("{\"metodoPago\":\"CUENTA_CORRIENTE\","
+                                + "\"items\":[{\"detalleId\":1,\"cantidad\":99}]}"))
                 .andExpect(status().isOk());
+
+        verify(pedidoService).convertir(eq(1L), any(Usuario.class), eq(true));
 
         mockMvc.perform(post("/api/pedidos")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -6,11 +6,13 @@ import com.repuestos.models.DetalleVenta;
 import com.repuestos.models.Pago;
 import com.repuestos.models.Venta;
 import com.repuestos.models.Usuario;
+import com.repuestos.services.NegocioException;
 import com.repuestos.services.VentaService;
 import com.repuestos.services.UsuarioService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -62,6 +64,13 @@ public class VentaController {
     public ResponseEntity<VentaResponse> crear(@RequestBody CrearVentaRequest request) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         Usuario usuario = usuarioService.buscarPorUsername(username);
+
+        if (request.getMetodoPago() != null
+                && "CUENTA_CORRIENTE".equalsIgnoreCase(request.getMetodoPago().trim())
+                && !usuarioService.esAdminActual()) {
+            throw new NegocioException(HttpStatus.FORBIDDEN,
+                    "Solo un administrador puede vender a cuenta corriente");
+        }
 
         Venta venta = Venta.builder()
             .usuario(usuario)

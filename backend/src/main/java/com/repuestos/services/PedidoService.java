@@ -1,8 +1,6 @@
 package com.repuestos.services;
 
-import com.repuestos.dto.PedidoAjusteRequest;
 import com.repuestos.dto.PedidoContactoResponse;
-import com.repuestos.dto.PedidoConvertirRequest;
 import com.repuestos.dto.PedidoCrearRequest;
 import com.repuestos.dto.PedidoRechazarRequest;
 import com.repuestos.dto.PedidoResponse;
@@ -25,7 +23,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -35,8 +32,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class PedidoService {
 
-    private static final Set<String> METODOS_PAGO_VALIDOS = Set.of(
-            "CUENTA_CORRIENTE", "EFECTIVO", "TARJETA", "TRANSFERENCIA", "OTRO");
+    private static final Set<String> METODOS_PAGO_CLIENTE = Set.of(
+            "EFECTIVO", "TARJETA", "TRANSFERENCIA");
     private static final int MAXIMO_PEDIDOS_PENDIENTES = 10;
 
     private final PedidoRepository pedidoRepository;
@@ -47,6 +44,8 @@ public class PedidoService {
 
     @Transactional
     public PedidoResponse crear(Usuario usuario, PedidoCrearRequest request) {
+        String metodoPago = validarMetodoPagoCliente(request.metodoPago());
+
         Cliente cliente = clienteService.asegurarClienteParaUsuario(usuario);
         if (!Boolean.TRUE.equals(cliente.getActivo())) {
             throw new NegocioException(HttpStatus.CONFLICT,
@@ -75,6 +74,7 @@ public class PedidoService {
                 .usuario(usuario)
                 .fecha(LocalDateTime.now())
                 .estado(Pedido.EstadoPedido.PENDIENTE)
+                .metodoPago(metodoPago)
                 .observaciones(request.observaciones() == null
                         ? null : request.observaciones().trim())
                 .build();
@@ -160,13 +160,16 @@ public class PedidoService {
     }
 
     @Transactional
-    public PedidoResponse convertir(Long id, PedidoConvertirRequest request,
-                                    Usuario actor, boolean esAdmin) {
-        String metodoPago = normalizarMetodoPago(request.metodoPago());
+    public PedidoResponse convertir(Long id, Usuario actor, boolean esAdmin) {
         Pedido pedido = bloqueado(id);
         validarPendiente(pedido);
 
-        aplicarAjustes(pedido, request.items());
+        String metodoPago = pedido.getMetodoPago();
+        if (metodoPago == null || metodoPago.isBlank()) {
+            throw new NegocioException(HttpStatus.CONFLICT,
+                    "Este pedido es anterior a la selección de método de pago y no puede "
+                            + "aprobarse: rechazalo y pedile al cliente que lo repita");
+        }
 
         BigDecimal total = BigDecimal.ZERO;
         List<DetalleVenta> lineasVenta = new ArrayList<>();
@@ -264,48 +267,15 @@ public class PedidoService {
         }
     }
 
-    private void aplicarAjustes(Pedido pedido, List<PedidoAjusteRequest> items) {
-        if (items == null || items.isEmpty()) {
-            return;
-        }
-
-        Map<Long, Integer> ajustes = new HashMap<>();
-        for (PedidoAjusteRequest item : items) {
-            ajustes.put(item.detalleId(), item.cantidad());
-        }
-
-        Iterator<DetallePedido> iterator = pedido.getDetalles().iterator();
-        while (iterator.hasNext()) {
-            DetallePedido detalle = iterator.next();
-            Integer cantidad = ajustes.remove(detalle.getId());
-            if (cantidad == null) {
-                continue;
-            }
-            if (cantidad == 0) {
-                iterator.remove();
-            } else {
-                detalle.setCantidad(cantidad);
-            }
-        }
-
-        if (!ajustes.isEmpty()) {
-            throw new NegocioException(HttpStatus.BAD_REQUEST,
-                    "Una línea del pedido no existe o no pertenece a este pedido");
-        }
-        if (pedido.getDetalles().isEmpty()) {
-            throw new NegocioException(HttpStatus.BAD_REQUEST,
-                    "El pedido debe tener al menos una línea para convertir");
-        }
-    }
-
-    private String normalizarMetodoPago(String metodoPago) {
+    private String validarMetodoPagoCliente(String metodoPago) {
         if (metodoPago == null || metodoPago.isBlank()) {
             throw new NegocioException(HttpStatus.BAD_REQUEST,
-                    "El método de pago es obligatorio");
+                    "Método de pago no disponible para compras online");
         }
         String metodo = metodoPago.trim().toUpperCase(Locale.ROOT);
-        if (!METODOS_PAGO_VALIDOS.contains(metodo)) {
-            throw new NegocioException(HttpStatus.BAD_REQUEST, "Método de pago inválido");
+        if (!METODOS_PAGO_CLIENTE.contains(metodo)) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
+                    "Método de pago no disponible para compras online");
         }
         return metodo;
     }
