@@ -12,6 +12,7 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 - **Venta rápida** - Flujo optimizado para mostrador
 - **Cuentas corrientes** - Gestión de deudas y pagos
 - **Catálogo público** - Web para clientes
+- **Pedidos online** - Carrito, seguimiento y conversión a venta
 - **Multi-rol** - Admin, Empleado y Cliente
 - **Responsive** - Funciona en celular y PC
 
@@ -21,7 +22,7 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 |-----|---------|
 | **ADMIN** | Acceso completo: dashboard, productos, ventas, clientes, cuentas corrientes, usuarios y configuración. |
 | **EMPLEADO** | Productos (crear/editar), ventas (incluidas ventas en cuenta corriente) y clientes (crear/editar). No puede eliminar productos/clientes, anular ventas, ver cuentas corrientes ni administrar usuarios. |
-| **CLIENTE** | Catálogo público, carrito y consulta por WhatsApp. Puede registrarse desde `/registro`. |
+| **CLIENTE** | Catálogo público, carrito, pedidos online y consulta por WhatsApp. Puede registrarse desde `/registro` y hace seguimiento en `/mis-pedidos`. |
 
 Los usuarios inactivos no pueden iniciar sesión. Un administrador no puede
 desactivarse a sí mismo, quitarse el rol ADMIN ni dejar el sistema sin al menos
@@ -105,10 +106,84 @@ Endpoints principales:
 - `PUT /api/usuarios/{id}` - edición de nombre, email, rol y estado (solo ADMIN).
 - `PUT /api/usuarios/{id}/password` - restablecimiento de contraseña (solo ADMIN).
 - `PATCH /api/usuarios/{id}/activo` - activar o desactivar usuario (solo ADMIN).
+- `PUT /api/usuarios/{id}/cliente` - vincular un usuario CLIENTE a una ficha de cliente (solo ADMIN).
+
+## 🛒 Pedidos online
+
+Un usuario `CLIENTE` arma un pedido desde el carrito (botón **Hacer pedido** en
+el panel del carrito, con confirmación, teléfono y observaciones). El pedido
+queda `PENDIENTE` y **no reserva stock, no genera una venta y no modifica la
+cuenta corriente**: recién al convertirse en venta pasa todo. Un `ADMIN` o
+`EMPLEADO` lo revisa en `/pedidos`, ajusta cantidades o quita líneas si hace
+falta y puede convertirlo en venta o rechazarlo con un motivo.
+
+Flujo:
+
+1. El `CLIENTE` envía el pedido desde el carrito (mínimo 1 y máximo 50 líneas,
+   cantidad por producto 1 a 9999, con stock validado al momento de pedir).
+2. Aparece en `/mis-pedidos` (para el cliente) y en `/pedidos` (para el panel),
+   con badge de pendientes en el menú.
+3. El empleado/administraor revisa, edita cantidades y elige el medio de pago.
+4. Al convertir: se revalida stock y precios, se descuenta el stock, se crea la
+   venta (con el cliente del pedido y el usuario que convierte) y se registra el
+   pago si el medio no es cuenta corriente. La venta queda con observaciones
+   `Pedido #id`.
+5. Si falta stock al convertir, el pedido sigue `PENDIENTE` y el error nombra el
+   producto. Dos conversiones simultáneas generan una sola venta (bloqueo del
+   pedido).
+6. `RECHAZADO` (con motivo) y `CANCELADO` (por el cliente) no tocan stock ni
+   saldo.
+
+El cliente puede seguir el estado en `/mis-pedidos` y cancelar mientras siga
+`PENDIENTE`. Al registrarse, cada usuario `CLIENTE` obtiene automáticamente su
+ficha de cliente (sin duplicarla nunca); un ADMIN puede vincularlo a una ficha
+existente desde `/usuarios`, regla: el cliente destino debe estar activo y no
+tener otro usuario vinculado, y si el cliente actual tiene ventas o pagos la
+vinculación se rechaza.
+
+### Venta anónima vs. venta con cliente
+
+| | Venta anónima (Venta Rápida sin cliente) | Venta con cliente (pedido o venta con cliente) |
+|---|---|---|
+| Origen | Venta Rápida / API con `clienteId = null` | Pedido convertido o venta con cliente elegido |
+| Stock | Se descuenta | Se descuenta |
+| Cuenta corriente | **No existe**: no toca ningún saldo | `CUENTA_CORRIENTE` suma el total al `saldoCorriente` |
+| Pago | Queda ligado solo a la venta | Queda ligado a la venta y al cliente (visible en su historial) |
+| Método `CUENTA_CORRIENTE` | **Rechazado** con 400: *"Para vender a cuenta corriente tenés que seleccionar un cliente registrado"* | Permitido (deja la venta `PENDIENTE` y genera deuda) |
+
+En la UI de Venta Rápida la opción “Cuenta corriente” solo aparece con un
+cliente seleccionado y, si se deselecciona el cliente, el método vuelve a
+`EFECTIVO`.
+
+### Permisos de los endpoints de pedidos
+
+| Endpoint | ADMIN | EMPLEADO | CLIENTE | Sin token |
+|---|---|---|---|---|
+| `POST /api/pedidos` | ✗ 403 | ✗ 403 | ✓ | 401 |
+| `GET /api/pedidos/mios`, `/mios/{id}`, `/mios/contacto`, `PUT /mios/{id}/cancelar` | ✗ 403 | ✗ 403 | ✓ | 401 |
+| `GET /api/pedidos?estado=`, `GET /api/pedidos/{id}`, `GET /api/pedidos/pendientes/count` | ✓ | ✓ | ✗ 403 | 401 |
+| `POST /api/pedidos/{id}/convertir`, `POST /api/pedidos/{id}/rechazar` | ✓ | ✓ | ✗ 403 | 401 |
+
+Un pedido de otro cliente responde `404` (no `403`) para no revelar que existe,
+y el `saldoCorriente` solo viaja en las respuestas hacia `ADMIN`.
+
+Endpoints principales:
+
+- `POST /api/pedidos` - crear pedido: `{items:[{productoId, cantidad}], telefono, observaciones}` (solo CLIENTE).
+- `GET /api/pedidos/mios` - historial propio (solo CLIENTE).
+- `GET /api/pedidos/mios/{id}` - detalle propio (solo CLIENTE).
+- `GET /api/pedidos/mios/contacto` - teléfono/dirección precargados (solo CLIENTE).
+- `PUT /api/pedidos/mios/{id}/cancelar` - cancelar pedido pendiente propio.
+- `GET /api/pedidos?estado=PENDIENTE` - listado para ADMIN/EMPLEADO.
+- `GET /api/pedidos/{id}` - detalle para ADMIN/EMPLEADO.
+- `GET /api/pedidos/pendientes/count` - contador para el menú.
+- `POST /api/pedidos/{id}/convertir` - `{metodoPago, items?:[{detalleId, cantidad}]}` (opcional para ajustar líneas).
+- `POST /api/pedidos/{id}/rechazar` - `{motivo}` obligatorio.
 
 ## 📚 Documentación
 
 - [Guía Docker](README_DOCKER.md) - Instrucciones para levantar el proyecto
+- [Resumen de pedidos online](RESUMEN_PEDIDOS.md) - Implementación y verificación
 - [Resumen de roles](RESUMEN_ROLES.md) - Detalle de implementación y verificación
 - [API Docs](http://localhost:8080/swagger-ui.html) - Documentación Swagger
 
