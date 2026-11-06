@@ -1,9 +1,11 @@
 package com.repuestos.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.repuestos.models.Cliente;
 
 import java.math.BigDecimal;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ClientePedidoResponse(
         Long id,
         String nombre,
