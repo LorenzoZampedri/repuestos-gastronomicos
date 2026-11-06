@@ -5,8 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.Map;
@@ -25,6 +28,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> negocio(NegocioException ex) {
         return ResponseEntity.status(ex.getStatus())
                 .body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> validacion(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(error -> error.getDefaultMessage())
+                .orElse("Datos inválidos");
+        return ResponseEntity.badRequest().body(Map.of("message", message));
+    }
+
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<Map<String, String>> datosInvalidos(Exception ex) {
+        return ResponseEntity.badRequest().body(Map.of("message", "Datos inválidos"));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
