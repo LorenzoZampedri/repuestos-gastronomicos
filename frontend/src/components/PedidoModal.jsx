@@ -4,16 +4,40 @@ import { AlertTriangle, CheckCircle2, MessageCircle, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import Modal from './Modal';
+import DatosTransferencia from './DatosTransferencia';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { formatMoney } from '../utils/format';
 
+const METODOS_PAGO = [
+  {
+    value: 'EFECTIVO',
+    label: 'Efectivo',
+    descripcion: 'Pagás en efectivo cuando el local confirme tu compra y coordines la entrega o retiro',
+  },
+  {
+    value: 'TARJETA',
+    label: 'Tarjeta',
+    descripcion: 'El local te confirma cómo abonar con tarjeta',
+  },
+  {
+    value: 'TRANSFERENCIA',
+    label: 'Transferencia',
+    descripcion: 'Transferí a los datos de la cuenta y avisanos por WhatsApp',
+  },
+];
+
+const etiquetaMetodo = (metodo) => (
+  METODOS_PAGO.find((opcion) => opcion.value === metodo)?.label || metodo || 'Sin método'
+);
+
 const PedidoModal = ({ open, onClose }) => {
   const { items, clearCart, precioUnitario, subtotalItem, cartTotal } = useCart();
-  const { moneda, getWhatsAppUrl } = useCurrency();
+  const { moneda, getWhatsAppUrl, recargarConfiguracion } = useCurrency();
 
   const [telefono, setTelefono] = useState('');
   const [observaciones, setObservaciones] = useState('');
+  const [metodoPago, setMetodoPago] = useState('');
   const [cargandoContacto, setCargandoContacto] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [pedidoCreado, setPedidoCreado] = useState(null);
@@ -23,8 +47,10 @@ const PedidoModal = ({ open, onClose }) => {
 
     setTelefono('');
     setObservaciones('');
+    setMetodoPago('');
     setPedidoCreado(null);
     setEnviando(false);
+    recargarConfiguracion();
 
     let activo = true;
     setCargandoContacto(true);
@@ -41,7 +67,7 @@ const PedidoModal = ({ open, onClose }) => {
       });
 
     return () => { activo = false; };
-  }, [open]);
+  }, [open, recargarConfiguracion]);
 
   const fmt = (valor) => (valor == null ? '—' : formatMoney(valor, moneda));
 
@@ -51,6 +77,10 @@ const PedidoModal = ({ open, onClose }) => {
     const telefonoNormalizado = telefono.trim();
     if (telefonoNormalizado.length < 6) {
       toast.error('Ingresá un teléfono de contacto válido');
+      return;
+    }
+    if (!metodoPago) {
+      toast.error('Elegí un método de pago para continuar');
       return;
     }
     if (items.length === 0) {
@@ -68,21 +98,24 @@ const PedidoModal = ({ open, onClose }) => {
         })),
         telefono: telefonoNormalizado,
         observaciones: observaciones.trim() || null,
+        metodoPago,
       });
       clearCart(true);
       setPedidoCreado(response.data);
-      toast.success(`Pedido #${response.data.id} enviado`);
+      toast.success(`Compra #${response.data.id} registrada`);
       window.dispatchEvent(new Event('pedidos-actualizados'));
     } catch (error) {
-      toast.error(error.response?.data?.message || 'No se pudo enviar el pedido');
+      toast.error(error.response?.data?.message || 'No se pudo registrar la compra');
     } finally {
       setEnviando(false);
     }
   };
 
   const avisarPorWhatsApp = () => {
-    const mensaje = `Hola! Ya hice el pedido #${pedidoCreado.id} desde la web `
-      + 'con los productos del carrito. ¿Me confirman la disponibilidad y el pago?';
+    const metodo = etiquetaMetodo(pedidoCreado.metodoPago);
+    const mensaje = `Hola! Ya registré la compra #${pedidoCreado.id} desde la web `
+      + `con los productos del carrito. Elegí pagar con ${metodo}. `
+      + '¿Me confirman la disponibilidad y cómo seguimos?';
     window.open(getWhatsAppUrl(mensaje), '_blank');
   };
 
@@ -94,12 +127,21 @@ const PedidoModal = ({ open, onClose }) => {
             <CheckCircle2 className="w-12 h-12 mx-auto text-green-600" aria-hidden="true" />
             <div>
               <h3 id="pedido-modal-titulo" className="text-lg font-semibold">
-                Pedido #{pedidoCreado.id} enviado
+                Compra #{pedidoCreado.id} registrada, pendiente de confirmación del local
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                Nos ponemos en contacto para coordinar el pago y la entrega.
+                Todavía no está paga: el local va a revisar la disponibilidad y confirmar
+                la compra.
+              </p>
+              <p className="text-sm font-medium text-gray-900 mt-2">
+                Método de pago elegido: {etiquetaMetodo(pedidoCreado.metodoPago)}
               </p>
             </div>
+
+            {pedidoCreado.metodoPago === 'TRANSFERENCIA' && (
+              <DatosTransferencia />
+            )}
+
             <div className="flex flex-col gap-2">
               <button onClick={avisarPorWhatsApp} className="btn-whatsapp w-full">
                 <MessageCircle className="w-5 h-5" aria-hidden="true" />
@@ -118,17 +160,17 @@ const PedidoModal = ({ open, onClose }) => {
         ) : (
           <>
             <h3 id="pedido-modal-titulo" className="text-lg font-semibold mb-1">
-              Confirmar pedido
+              Confirmar compra
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              Revisá los productos y dejá tu teléfono de contacto.
+              Revisá los productos, elegí cómo pagar y dejá tu teléfono de contacto.
             </p>
 
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2 mb-4">
               <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
               <p className="text-xs text-amber-800">
-                El total es estimado: el precio final se confirma al aprobar el pedido.
-                No se reserva stock hasta que el local lo aprueba.
+                El total es estimado: el precio final se confirma al aprobar la compra.
+                No se reserva stock hasta que el local la aprueba.
               </p>
             </div>
 
@@ -153,6 +195,48 @@ const PedidoModal = ({ open, onClose }) => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              <fieldset>
+                <legend className="label">Método de pago</legend>
+                <div className="space-y-2">
+                  {METODOS_PAGO.map((metodo) => (
+                    <label
+                      key={metodo.value}
+                      className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                        metodoPago === metodo.value
+                          ? 'border-primary-500 bg-primary-50'
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="metodo-pago"
+                        value={metodo.value}
+                        checked={metodoPago === metodo.value}
+                        onChange={(e) => setMetodoPago(e.target.value)}
+                        className="mt-1"
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-gray-900">
+                          {metodo.label}
+                        </span>
+                        <span className="block text-xs text-gray-600 mt-0.5">
+                          {metodo.descripcion}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              {metodoPago === 'TRANSFERENCIA' && (
+                <div className="space-y-2">
+                  <DatosTransferencia />
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Realizá la transferencia y avisanos por WhatsApp para confirmar tu compra.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label htmlFor="pedido-telefono" className="label">Teléfono de contacto</label>
                 <input
@@ -197,12 +281,12 @@ const PedidoModal = ({ open, onClose }) => {
                   {enviando ? (
                     <>
                       <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-                      Enviando...
+                      Registrando...
                     </>
                   ) : (
                     <>
                       <Send className="w-4 h-4" aria-hidden="true" />
-                      Hacer pedido
+                      Comprar
                     </>
                   )}
                 </button>

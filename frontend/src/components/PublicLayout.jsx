@@ -193,7 +193,7 @@ const CartDrawer = ({ isOpen, onClose, onHacerPedido }) => {
                 className="btn-primary w-full flex items-center justify-center gap-2"
               >
                 <ShoppingCart className="w-5 h-5" aria-hidden="true" />
-                Hacer pedido
+                Comprar
               </button>
             ) : !user && (
               <div className="text-center text-sm text-gray-600 space-y-1">

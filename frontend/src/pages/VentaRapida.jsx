@@ -31,10 +31,10 @@ const VentaRapida = () => {
   const [observacionesDeuda, setObservacionesDeuda] = useState('');
 
   useEffect(() => {
-    if (!clienteSeleccionado && metodoPago === 'CUENTA_CORRIENTE') {
+    if ((!isAdmin() || !clienteSeleccionado) && metodoPago === 'CUENTA_CORRIENTE') {
       setMetodoPago('EFECTIVO');
     }
-  }, [clienteSeleccionado, metodoPago]);
+  }, [clienteSeleccionado, metodoPago, isAdmin]);
 
   useEffect(() => {
     fetchProductos();
@@ -444,7 +444,7 @@ const VentaRapida = () => {
               <option value="EFECTIVO">Efectivo</option>
               <option value="TARJETA">Tarjeta</option>
               <option value="TRANSFERENCIA">Transferencia</option>
-              {clienteSeleccionado && (
+              {isAdmin() && clienteSeleccionado && (
                 <option value="CUENTA_CORRIENTE">Cuenta corriente</option>
               )}
             </select>

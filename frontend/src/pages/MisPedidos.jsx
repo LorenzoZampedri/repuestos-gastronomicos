@@ -4,7 +4,14 @@ import { Calendar, ClipboardList, Package, RefreshCw, XCircle } from 'lucide-rea
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import EmptyState from '../components/EmptyState';
+import DatosTransferencia from '../components/DatosTransferencia';
 import { formatMoney } from '../utils/format';
+
+const METODOS_PAGO = {
+  EFECTIVO: 'Efectivo',
+  TARJETA: 'Tarjeta',
+  TRANSFERENCIA: 'Transferencia',
+};
 
 const ESTADOS = {
   PENDIENTE: {
@@ -127,6 +134,12 @@ const MisPedidos = () => {
                       {formatearFecha(pedido.fecha)}
                     </p>
                     <p className="text-sm text-gray-500 mt-1">{estado.descripcion}</p>
+                    {pedido.metodoPago && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        <span className="font-medium">Método de pago:</span>{' '}
+                        {METODOS_PAGO[pedido.metodoPago] || pedido.metodoPago}
+                      </p>
+                    )}
                   </div>
                   <div className="text-left sm:text-right">
                     <p className="text-sm text-gray-500">Total estimado</p>
@@ -159,6 +172,10 @@ const MisPedidos = () => {
                   <p className="mt-3 text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
                     Venta registrada: #{pedido.ventaId}
                   </p>
+                )}
+
+                {pedido.metodoPago === 'TRANSFERENCIA' && pedido.estado === 'PENDIENTE' && (
+                  <DatosTransferencia className="mt-3" />
                 )}
 
                 {pedido.observaciones && (

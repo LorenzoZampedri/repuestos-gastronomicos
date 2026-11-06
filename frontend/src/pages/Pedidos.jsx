@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Check, ClipboardList, Mail, MapPin, Phone, RefreshCw, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Calendar, Check, ClipboardList, Mail, MapPin, Phone, RefreshCw, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import Modal from '../components/Modal';
@@ -14,13 +14,11 @@ const ESTADOS = {
   CANCELADO: { label: 'Cancelado', className: 'bg-gray-100 text-gray-700' },
 };
 
-const METODOS_PAGO = [
-  { value: 'EFECTIVO', label: 'Efectivo' },
-  { value: 'TARJETA', label: 'Tarjeta' },
-  { value: 'TRANSFERENCIA', label: 'Transferencia' },
-  { value: 'CUENTA_CORRIENTE', label: 'Cuenta corriente' },
-  { value: 'OTRO', label: 'Otro' },
-];
+const METODOS_PAGO = {
+  EFECTIVO: 'Efectivo',
+  TARJETA: 'Tarjeta',
+  TRANSFERENCIA: 'Transferencia',
+};
 
 const formatearFecha = (fecha) => {
   if (!fecha) return '—';
@@ -35,67 +33,27 @@ const notificarActualizacion = () => {
 };
 
 const DetallePedidoModal = ({ pedido, open, onClose, onResuelto }) => {
-  const [items, setItems] = useState([]);
   const [modo, setModo] = useState('detalle');
-  const [metodoPago, setMetodoPago] = useState('EFECTIVO');
   const [motivo, setMotivo] = useState('');
   const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
     if (!open || !pedido) return;
-    setItems((pedido.detalles || []).map((detalle) => ({
-      detalleId: detalle.id,
-      nombre: detalle.nombreProducto,
-      cantidad: detalle.cantidad,
-      cantidadOriginal: detalle.cantidad,
-      stockActual: detalle.stockActual,
-      productoActivo: detalle.productoActivo,
-    })));
     setModo('detalle');
-    setMetodoPago('EFECTIVO');
     setMotivo('');
     setGuardando(false);
   }, [open, pedido]);
 
-  const cambiarCantidad = (detalleId, cantidad) => {
-    setItems((prev) => prev.map((item) => (
-      item.detalleId === detalleId
-        ? { ...item, cantidad: Math.max(0, Math.min(9999, cantidad)) }
-        : item
-    )));
-  };
-
-  const quitarLinea = (detalleId) => cambiarCantidad(detalleId, 0);
-
-  const lineasValidas = items.filter((item) => item.cantidad > 0);
-  const lineasConProblema = items.filter((item) => item.cantidad > 0
-    && (item.productoActivo === false || item.cantidad > (item.stockActual ?? 0)));
-
-  const convertir = async (e) => {
+  const aprobar = async (e) => {
     e.preventDefault();
-    if (lineasValidas.length === 0) {
-      toast.error('El pedido debe tener al menos una línea para convertir');
-      return;
-    }
-    if (lineasConProblema.length > 0) {
-      toast.error(`Revisá stock o disponibilidad de: ${lineasConProblema[0].nombre}`);
-      return;
-    }
-
     setGuardando(true);
     try {
-      await api.post(`/api/pedidos/${pedido.id}/convertir`, {
-        metodoPago,
-        items: items.map((item) => ({
-          detalleId: item.detalleId,
-          cantidad: item.cantidad,
-        })),
-      });
+      await api.post(`/api/pedidos/${pedido.id}/convertir`);
       notificarActualizacion();
       toast.success(
         (t) => (
           <span>
-            Pedido #{pedido.id} convertido en venta.{' '}
+            Pedido #{pedido.id} aprobado y registrado como venta.{' '}
             <Link
               to="/ventas"
               onClick={() => toast.dismiss(t.id)}
@@ -110,7 +68,7 @@ const DetallePedidoModal = ({ pedido, open, onClose, onResuelto }) => {
       onResuelto();
       onClose();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'No se pudo convertir el pedido');
+      toast.error(error.response?.data?.message || 'No se pudo aprobar el pedido');
     } finally {
       setGuardando(false);
     }
@@ -140,6 +98,7 @@ const DetallePedidoModal = ({ pedido, open, onClose, onResuelto }) => {
   const cliente = pedido?.cliente;
   const estado = ESTADOS[pedido?.estado] || ESTADOS.PENDIENTE;
   const esPendiente = pedido?.estado === 'PENDIENTE';
+  const sinMetodo = esPendiente && !pedido?.metodoPago;
 
   return (
     <Modal open={open && !!pedido} onClose={onClose} labelledBy="detalle-pedido-titulo">
@@ -210,66 +169,62 @@ const DetallePedidoModal = ({ pedido, open, onClose, onResuelto }) => {
               <span className="font-medium">Venta:</span> #{pedido.ventaId}
             </p>
           )}
+          <div className="pt-1">
+            <span className="font-medium text-gray-900">Método de pago elegido:</span>{' '}
+            {pedido?.metodoPago ? (
+              <span className="inline-flex ml-1 px-2 py-0.5 text-xs font-medium rounded-full bg-primary-100 text-primary-800">
+                {METODOS_PAGO[pedido.metodoPago] || pedido.metodoPago}
+              </span>
+            ) : (
+              <span className="text-gray-600">Sin método (pedido anterior)</span>
+            )}
+          </div>
         </div>
+
+        {sinMetodo && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <p className="text-xs text-amber-800">
+              Este pedido es anterior a la selección de método de pago y no puede aprobarse:
+              rechazalo y pedile al cliente que lo repita.
+            </p>
+          </div>
+        )}
 
         {modo === 'detalle' && (
           <>
             <div className="space-y-2">
-              {items.map((item) => {
-                const sinStock = item.productoActivo === false
-                  || item.cantidad > (item.stockActual ?? 0);
-                const quitada = item.cantidad === 0;
+              {pedido?.detalles?.map((detalle) => {
+                const stockActual = detalle.stockActual;
+                const sinStock = detalle.productoActivo === false
+                  || (stockActual != null && detalle.cantidad > stockActual);
+                const precioUnitario = detalle.precioUnitarioEstimado;
+                const subtotal = detalle.subtotalEstimado;
                 return (
                   <div
-                    key={item.detalleId}
-                    className={`flex items-center gap-3 rounded-lg p-3 ${quitada ? 'bg-gray-50 opacity-60' : 'bg-white border border-gray-100'}`}
+                    key={detalle.id}
+                    className="flex items-start justify-between gap-3 rounded-lg p-3 bg-white border border-gray-100"
                   >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{item.nombre}</p>
-                      {quitada ? (
-                        <p className="text-xs text-gray-500">Quitada del pedido</p>
-                      ) : item.productoActivo === false ? (
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900">
+                        {detalle.nombreProducto}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {detalle.cantidad} x {formatMoney(precioUnitario, 'ARS')}
+                      </p>
+                      {detalle.productoActivo === false ? (
                         <p className="text-xs text-red-600 font-medium">Producto inactivo</p>
-                      ) : (
-                        <p className={`text-xs ${sinStock ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                          Stock disponible: {item.stockActual}
-                          {sinStock && ' — no alcanza'}
+                      ) : sinStock ? (
+                        <p className="text-xs text-red-600 font-medium">
+                          Stock insuficiente (disponible: {stockActual})
                         </p>
+                      ) : (
+                        <p className="text-xs text-gray-500">Stock actual: {stockActual}</p>
                       )}
                     </div>
-                    {esPendiente && (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min="0"
-                          max="9999"
-                          value={item.cantidad}
-                          onChange={(e) => cambiarCantidad(item.detalleId, Number(e.target.value))}
-                          disabled={quitada}
-                          className="input w-20 text-center"
-                          aria-label={`Cantidad de ${item.nombre}`}
-                        />
-                        {quitada ? (
-                          <button
-                            type="button"
-                            onClick={() => cambiarCantidad(item.detalleId, item.cantidadOriginal)}
-                            className="text-xs text-primary-800 hover:underline"
-                          >
-                            Restaurar
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => quitarLinea(item.detalleId)}
-                            className="p-2 text-gray-400 hover:text-red-600 rounded-lg"
-                            title="Quitar línea"
-                            aria-label={`Quitar ${item.nombre} del pedido`}
-                          >
-                            <Trash2 className="w-4 h-4" aria-hidden="true" />
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">
+                      {formatMoney(subtotal, 'ARS')}
+                    </span>
                   </div>
                 );
               })}
@@ -289,47 +244,31 @@ const DetallePedidoModal = ({ pedido, open, onClose, onResuelto }) => {
                   <X className="w-4 h-4" aria-hidden="true" />
                   Rechazar
                 </button>
-                <button
-                  onClick={() => setModo('convertir')}
-                  className="btn-primary flex items-center gap-2"
-                >
-                  <Check className="w-4 h-4" aria-hidden="true" />
-                  Convertir en venta
-                </button>
+                {!sinMetodo && (
+                  <button
+                    onClick={() => setModo('confirmar')}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    <Check className="w-4 h-4" aria-hidden="true" />
+                    Aprobar pedido
+                  </button>
+                )}
               </div>
             )}
           </>
         )}
 
-        {modo === 'convertir' && (
-          <form onSubmit={convertir} className="space-y-4">
-            <p className="text-sm text-gray-500">
-              El total se recalcula en el servidor con los precios y descuentos vigentes.
+        {modo === 'confirmar' && (
+          <form onSubmit={aprobar} className="space-y-4">
+            <p className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-3">
+              Al aprobar se registra la venta como cobrada. Confirmá que recibiste el pago.
             </p>
-            <div>
-              <label htmlFor="metodo-pago-pedido" className="label">Método de pago</label>
-              <select
-                id="metodo-pago-pedido"
-                value={metodoPago}
-                onChange={(e) => setMetodoPago(e.target.value)}
-                className="input"
-              >
-                {METODOS_PAGO.map((metodo) => (
-                  <option key={metodo.value} value={metodo.value}>{metodo.label}</option>
-                ))}
-              </select>
-              {metodoPago === 'CUENTA_CORRIENTE' && (
-                <p className="text-xs text-amber-700 mt-1">
-                  La deuda quedará registrada en la cuenta corriente del cliente.
-                </p>
-              )}
-            </div>
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setModo('detalle')} className="btn-secondary">
                 Volver
               </button>
               <button type="submit" disabled={guardando} className="btn-primary">
-                {guardando ? 'Convirtiendo...' : 'Confirmar conversión'}
+                {guardando ? 'Aprobando...' : 'Confirmar aprobación'}
               </button>
             </div>
           </form>
@@ -398,7 +337,7 @@ const Pedidos = () => {
         <div>
           <h1 className="text-lg sm:text-2xl font-bold text-gray-900">Pedidos online</h1>
           <p className="text-sm sm:text-base text-gray-500">
-            Revisá los pedidos del catálogo y convertilos en ventas.
+            Revisá los pedidos del catálogo y aprobalos como ventas.
           </p>
         </div>
         <button onClick={recargar} className="btn-secondary flex items-center gap-2 self-start">
