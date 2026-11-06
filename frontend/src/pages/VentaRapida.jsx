@@ -31,6 +31,12 @@ const VentaRapida = () => {
   const [observacionesDeuda, setObservacionesDeuda] = useState('');
 
   useEffect(() => {
+    if (!clienteSeleccionado && metodoPago === 'CUENTA_CORRIENTE') {
+      setMetodoPago('EFECTIVO');
+    }
+  }, [clienteSeleccionado, metodoPago]);
+
+  useEffect(() => {
     fetchProductos();
     fetchClientes();
   }, []);
@@ -143,6 +149,12 @@ const VentaRapida = () => {
 
     if (carrito.length === 0) {
       toast.error('El carrito está vacío');
+      return;
+    }
+
+    if (metodoPago === 'CUENTA_CORRIENTE' && !clienteSeleccionado) {
+      toast.error('Para vender a cuenta corriente tenés que seleccionar un cliente registrado');
+      setMetodoPago('EFECTIVO');
       return;
     }
 
@@ -432,7 +444,9 @@ const VentaRapida = () => {
               <option value="EFECTIVO">Efectivo</option>
               <option value="TARJETA">Tarjeta</option>
               <option value="TRANSFERENCIA">Transferencia</option>
-              <option value="CUENTA_CORRIENTE">Cuenta corriente</option>
+              {clienteSeleccionado && (
+                <option value="CUENTA_CORRIENTE">Cuenta corriente</option>
+              )}
             </select>
           </div>
 
