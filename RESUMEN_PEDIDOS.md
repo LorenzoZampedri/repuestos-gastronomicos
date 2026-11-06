@@ -104,3 +104,54 @@ sin venta ni cobro adicionales; rechazar devuelve el stock descontado por el ped
   pero implica que un empleado no ve la deuda de su cliente al preparar el pedido.
 - **`Vendedor` es fijo en el pedido** (se toma de la ficha al momento del alta); si cambia
   después, el pedido no lo sigue.
+
+## 7. Compra con método de pago, aprobación de solo lectura y datos de transferencia
+
+Esta fase cambia el checkout del cliente y la aprobación del panel:
+
+- El cliente elige **Efectivo**, **Tarjeta** o **Transferencia** al comprar. La API
+  rechaza `CUENTA_CORRIENTE`, `OTRO`, vacío o valores inventados con `400`
+  *"Método de pago no disponible para compras online"*.
+- El pedido guarda `metodoPago` (columna nullable para los pedidos viejos).
+- El panel `/pedidos` es **solo lectura**: no se editan cantidades, no se quitan
+  líneas y no se elige método. Aprobar usa el método elegido por el cliente y
+  registra la venta `PAGADA`; rechazar exige motivo.
+- Los pedidos anteriores sin método no se pueden aprobar (`409` con mensaje
+  explicativo); solo se rechazan. La UI oculta el botón de aprobar y muestra la
+  nota.
+- La venta a `CUENTA_CORRIENTE` queda restringida a **ADMIN**. Un EMPLEADO recibe
+  `403` por API y la opción no aparece en Venta Rápida.
+- Los datos de transferencia (CVU, alias y titular) se siembran como claves de
+  configuración solo si no existen y se editan desde **Configuración** en un único
+  acordeón cerrado por defecto. `GET /api/configuracion/publica` los expone en
+  `datosTransferencia`; el frontend los muestra en checkout, éxito y Mis pedidos
+  con botones para copiar CVU/alias.
+
+### Archivos nuevos de esta fase
+
+| Capa | Archivos |
+|---|---|
+| Backend | `dto/DatosTransferenciaRequest.java`, `dto/DatosTransferenciaResponse.java` |
+| Backend tests | `services/ConfiguracionTransferenciaTest.java` |
+| Frontend | `components/DatosTransferencia.jsx`, `components/SeccionDesplegable.jsx` |
+
+### Archivos modificados de esta fase
+
+`models/Pedido.java`, `dto/PedidoCrearRequest.java`, `dto/PedidoResponse.java`,
+`services/PedidoService.java`, `controllers/PedidoController.java`,
+`controllers/VentaController.java`, `services/ConfiguracionService.java`,
+`controllers/ConfiguracionController.java`, `db/init.sql`,
+`PedidoServiceTest.java`, `SecurityRolesTest.java`, `CurrencyContext.jsx`,
+`PedidoModal.jsx`, `PublicLayout.jsx`, `MisPedidos.jsx`, `Pedidos.jsx`,
+`VentaRapida.jsx`, `Configuracion.jsx`, `README.md`.
+
+Se eliminaron `PedidoConvertirRequest`, `PedidoAjusteRequest` y la lógica de
+ajuste de líneas en `PedidoService`.
+
+### Verificación de esta fase
+
+- Suite backend con Docker (`maven:3.9-eclipse-temurin-17`): **134 tests, 0 fallos,
+  0 errores**.
+- Build frontend con Docker (`node:20-alpine`): **OK**.
+- La rama de trabajo se mantiene en `feature/pedidos`; `scripts/importar_excel.py`
+  no se incluyó en ningún commit de esta fase.
