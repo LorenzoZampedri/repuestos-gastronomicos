@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
+import { Search, DollarSign, AlertCircle, CheckCircle, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { formatMoney } from '../utils/format';
@@ -11,7 +11,7 @@ const ESTADO_VENTA_STYLE = {
   ANULADA: 'bg-gray-100 text-gray-800'
 };
 
-const FILTROS_VALIDOS = ['deuda', 'aldia'];
+const FILTROS_VALIDOS = ['deuda', 'aldia', 'favor'];
 
 const leerFiltroInicial = () => {
   const filtro = new URLSearchParams(window.location.search).get('filtro');
@@ -28,6 +28,7 @@ const CuentasCorrientes = () => {
   const [pagos, setPagos] = useState([]);
   const [ajustandoSaldo, setAjustandoSaldo] = useState(null);
   const [montoAjuste, setMontoAjuste] = useState('');
+  const [passwordAjuste, setPasswordAjuste] = useState('');
   const [filtroEstado, setFiltroEstado] = useState(leerFiltroInicial);
 
   useEffect(() => {
@@ -101,11 +102,20 @@ const CuentasCorrientes = () => {
       toast.error('Ingresá un monto válido');
       return;
     }
+    if (!passwordAjuste.trim()) {
+      toast.error('Ingresá tu contraseña para autorizar el pago');
+      return;
+    }
     try {
-      await api.patch(`/api/clientes/${clienteId}/saldo`, { monto, tipo: 'restar' });
+      await api.patch(`/api/clientes/${clienteId}/saldo`, {
+        monto,
+        tipo: 'restar',
+        password: passwordAjuste
+      });
       toast.success('Pago registrado');
       setAjustandoSaldo(null);
       setMontoAjuste('');
+      setPasswordAjuste('');
       const clientesActualizados = await fetchClientesConDeuda();
       if (clienteSeleccionado?.id === clienteId) {
         const updated = clientesActualizados.find(c => c.id === clienteId);
@@ -119,9 +129,14 @@ const CuentasCorrientes = () => {
   };
 
   const clientesConDeuda = clientes.filter(c => (c.saldoCorriente || 0) > 0);
+  const clientesConSaldoFavor = clientes.filter(c => (c.saldoCorriente || 0) < 0);
   const ventasVisibles = ventas.filter(venta => venta.estado !== 'ANULADA');
   const totalDeuda = clientesConDeuda.reduce((sum, c) => sum + (c.saldoCorriente || 0), 0);
-  const clientesAlDia = todosLosClientes.filter(c => (c.saldoCorriente || 0) <= 0).length;
+  const totalSaldoFavor = clientesConSaldoFavor.reduce((sum, c) => sum + Math.abs(c.saldoCorriente || 0), 0);
+  const clientesAlDia = todosLosClientes.filter(c => (c.saldoCorriente || 0) === 0).length;
+  const saldoSeleccionado = clienteSeleccionado?.saldoCorriente || 0;
+  const montoIngresado = parseFloat(montoAjuste) || 0;
+  const excedeSaldo = montoIngresado > saldoSeleccionado;
 
   const toggleFiltroEstado = (estado) => {
     setFiltroEstado(prev => prev === estado ? null : estado);
@@ -130,7 +145,8 @@ const CuentasCorrientes = () => {
   const clientesFiltrados = clientes.filter(c => {
     const saldo = c.saldoCorriente || 0;
     if (filtroEstado === 'deuda' && saldo <= 0) return false;
-    if (filtroEstado === 'aldia' && saldo > 0) return false;
+    if (filtroEstado === 'aldia' && saldo !== 0) return false;
+    if (filtroEstado === 'favor' && saldo >= 0) return false;
     return c.nombre.toLowerCase().includes(busqueda.toLowerCase());
   });
 
@@ -138,13 +154,17 @@ const CuentasCorrientes = () => {
     ? `Clientes · con deuda (${clientesFiltrados.length})`
     : filtroEstado === 'aldia'
       ? `Clientes · al día (${clientesFiltrados.length})`
-      : 'Clientes';
+      : filtroEstado === 'favor'
+        ? `Clientes · con saldo a favor (${clientesFiltrados.length})`
+        : 'Clientes';
 
   const mensajeListaVacia = filtroEstado === 'deuda'
     ? 'No hay clientes con deuda'
     : filtroEstado === 'aldia'
       ? 'No hay clientes al día'
-      : 'No se encontraron clientes';
+      : filtroEstado === 'favor'
+        ? 'No hay clientes con saldo a favor'
+        : 'No se encontraron clientes';
 
   if (loading) {
     return (
@@ -163,7 +183,7 @@ const CuentasCorrientes = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <button
           type="button"
           onClick={() => toggleFiltroEstado('deuda')}
@@ -213,6 +233,29 @@ const CuentasCorrientes = () => {
             </div>
           </div>
         </button>
+        <button
+          type="button"
+          onClick={() => toggleFiltroEstado('favor')}
+          aria-pressed={filtroEstado === 'favor'}
+          className={`card w-full text-left cursor-pointer transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 ${
+            filtroEstado === 'favor' ? 'ring-2 ring-blue-400 bg-blue-50' : ''
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <Wallet className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Saldo a favor</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {formatMoney(totalSaldoFavor, 'ARS')}
+              </p>
+              <p className="text-xs text-gray-500">
+                {clientesConSaldoFavor.length} {clientesConSaldoFavor.length === 1 ? 'cliente' : 'clientes'}
+              </p>
+            </div>
+          </div>
+        </button>
       </div>
 
       {/* Search */}
@@ -254,7 +297,9 @@ const CuentasCorrientes = () => {
                     <span className={`font-semibold ${cliente.saldoCorriente > 0 ? 'text-red-600' : 'text-green-600'}`}>
                       {cliente.saldoCorriente > 0
                         ? formatMoney(cliente.saldoCorriente, 'ARS')
-                        : 'Al día'}
+                        : cliente.saldoCorriente < 0
+                          ? `A favor ${formatMoney(Math.abs(cliente.saldoCorriente), 'ARS')}`
+                          : 'Al día'}
                     </span>
                   </div>
                 </button>
@@ -280,43 +325,77 @@ const CuentasCorrientes = () => {
                   <p className="text-gray-500">{clienteSeleccionado.telefono}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Saldo pendiente</p>
-                  <p className="text-2xl font-bold text-red-600">
-                    {formatMoney(clienteSeleccionado.saldoCorriente, 'ARS')}
+                  <p className="text-sm text-gray-500">
+                    {saldoSeleccionado > 0
+                      ? 'Saldo pendiente'
+                      : saldoSeleccionado < 0
+                        ? 'Saldo a favor'
+                        : 'Saldo'}
                   </p>
-                  {clienteSeleccionado.saldoCorriente > 0 && <button
+                  <p className={`text-2xl font-bold ${
+                    saldoSeleccionado > 0
+                      ? 'text-red-600'
+                      : saldoSeleccionado < 0
+                        ? 'text-green-600'
+                        : 'text-gray-900'
+                  }`}>
+                    {formatMoney(Math.abs(saldoSeleccionado), 'ARS')}
+                  </p>
+                  {saldoSeleccionado > 0 && <button
                     onClick={() => {
                       setAjustandoSaldo(clienteSeleccionado.id);
                       setMontoAjuste('');
+                      setPasswordAjuste('');
                     }}
                     className="mt-2 text-sm text-blue-600 hover:text-blue-800"
                   >
                     Registrar pago
                   </button>}
-                  {ajustandoSaldo === clienteSeleccionado.id && clienteSeleccionado.saldoCorriente > 0 && (
-                    <div className="mt-2 flex gap-2 justify-end">
-                      <input
-                        type="number"
-                        value={montoAjuste}
-                        onChange={(e) => setMontoAjuste(e.target.value)}
-                        placeholder="Monto"
-                        min="0.01"
-                        max={clienteSeleccionado.saldoCorriente}
-                        step="0.01"
-                        className="w-24 px-2 py-1 border rounded text-sm"
-                      />
-                      <button
-                        onClick={() => handleRegistrarPago(clienteSeleccionado.id)}
-                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                      >
-                        Pagar
-                      </button>
-                      <button
-                        onClick={() => { setAjustandoSaldo(null); setMontoAjuste(''); }}
-                        className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
-                      >
-                        Cancelar
-                      </button>
+                  {ajustandoSaldo === clienteSeleccionado.id && saldoSeleccionado > 0 && (
+                    <div className="mt-2 flex flex-col gap-2 items-end">
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          value={montoAjuste}
+                          onChange={(e) => setMontoAjuste(e.target.value)}
+                          placeholder="Monto"
+                          min="0.01"
+                          step="0.01"
+                          className="w-24 px-2 py-1 border rounded text-sm"
+                        />
+                        <input
+                          type="password"
+                          value={passwordAjuste}
+                          onChange={(e) => setPasswordAjuste(e.target.value)}
+                          placeholder="Tu contraseña"
+                          autoComplete="current-password"
+                          className="w-36 px-2 py-1 border rounded text-sm"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleRegistrarPago(clienteSeleccionado.id)}
+                          className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                        >
+                          Autorizar pago
+                        </button>
+                        <button
+                          onClick={() => {
+                            setAjustandoSaldo(null);
+                            setMontoAjuste('');
+                            setPasswordAjuste('');
+                          }}
+                          className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                      {excedeSaldo && (
+                        <p className="text-xs text-orange-600">
+                          El monto supera la deuda: quedará un saldo a favor de{' '}
+                          {formatMoney(montoIngresado - saldoSeleccionado, 'ARS')}.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -378,6 +457,10 @@ const CuentasCorrientes = () => {
                       <p className="text-sm text-gray-500">
                         {new Date(pago.fecha).toLocaleDateString('es-AR')} · {pago.metodoPago}
                         {pago.referencia ? ` · ${pago.referencia}` : ''}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Registrado por{' '}
+                        {pago.usuario?.nombre || pago.usuario?.username || 'usuario no registrado'}
                       </p>
                     </div>
                     <p className="font-semibold text-green-700">

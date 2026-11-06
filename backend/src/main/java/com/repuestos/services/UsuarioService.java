@@ -3,7 +3,10 @@ package com.repuestos.services;
 import com.repuestos.models.Usuario;
 import com.repuestos.repositories.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -43,5 +46,23 @@ public class UsuarioService implements UserDetailsService {
     public Usuario buscarPorUsername(String username) {
         return usuarioRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
+    }
+
+    public Usuario verificarPasswordActual(String password) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication.getName() == null) {
+            throw new NegocioException(HttpStatus.UNAUTHORIZED, "Usuario no autenticado");
+        }
+        return verificarPassword(authentication.getName(), password);
+    }
+
+    public Usuario verificarPassword(String username, String password) {
+        Usuario usuario = buscarPorUsername(username);
+        if (password == null || password.isBlank()
+                || !passwordEncoder.matches(password, usuario.getPasswordHash())) {
+            throw new NegocioException(HttpStatus.FORBIDDEN, "Contraseña incorrecta");
+        }
+        return usuario;
     }
 }

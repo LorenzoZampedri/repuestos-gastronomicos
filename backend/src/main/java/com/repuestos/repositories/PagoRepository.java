@@ -14,7 +14,12 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
     
     List<Pago> findByVentaId(Long ventaId);
     
-    @Query("SELECT p FROM Pago p LEFT JOIN p.venta v WHERE p.cliente.id = :clienteId OR v.cliente.id = :clienteId ORDER BY p.fecha DESC")
+    @Query("SELECT p FROM Pago p "
+            + "LEFT JOIN FETCH p.usuario "
+            + "LEFT JOIN FETCH p.cliente "
+            + "LEFT JOIN p.venta v "
+            + "WHERE p.cliente.id = :clienteId OR v.cliente.id = :clienteId "
+            + "ORDER BY p.fecha DESC")
     List<Pago> findPagosPorCliente(@Param("clienteId") Long clienteId);
     
     @Query("SELECT p FROM Pago p WHERE p.fecha BETWEEN :inicio AND :fin ORDER BY p.fecha DESC")

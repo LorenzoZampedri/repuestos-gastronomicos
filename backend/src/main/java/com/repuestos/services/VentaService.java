@@ -117,6 +117,7 @@ public class VentaService {
                     .metodoPago(parseMetodoPago(metodoPago))
                     .moneda("ARS")
                     .referencia("Pago de venta")
+                    .usuario(ventaGuardada.getUsuario())
                     .build();
             registrarPago(ventaGuardada.getId(), pago);
         }
@@ -136,6 +137,9 @@ public class VentaService {
         aplicarPagoAVenta(venta, pago.getMonto());
         pago.setVenta(venta);
         pago.setCliente(venta.getCliente());
+        if (pago.getUsuario() == null) {
+            pago.setUsuario(venta.getUsuario());
+        }
         pago.setFecha(LocalDateTime.now());
 
         Pago pagoGuardado = pagoRepository.save(pago);
@@ -156,11 +160,19 @@ public class VentaService {
     /**
      * Registra un pago de cuenta corriente: reparte el monto entre las ventas abiertas del
      * cliente (PENDIENTE/PARCIAL) de más antigua a más reciente. El sobrante (deuda manual
-     * cargada con tipo "sumar") se registra como pago sin venta. El saldoCorriente del
-     * cliente se descuenta exactamente una vez por el monto total del pago.
+     * cargada con tipo "sumar" o un sobrepago) se registra como pago sin venta. El
+     * saldoCorriente del cliente se descuenta exactamente una vez por el monto total del
+     * pago; si el pago supera la deuda, el saldo queda negativo y representa un saldo a
+     * favor del cliente.
      */
     @Transactional
     public void registrarPagoCuentaCorriente(Long clienteId, BigDecimal monto, String metodoPago) {
+        registrarPagoCuentaCorriente(clienteId, monto, metodoPago, null);
+    }
+
+    @Transactional
+    public void registrarPagoCuentaCorriente(Long clienteId, BigDecimal monto, String metodoPago,
+                                             Usuario usuario) {
         if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El monto debe ser mayor a cero");
         }
@@ -177,9 +189,6 @@ public class VentaService {
         BigDecimal saldoActual = cliente.getSaldoCorriente() == null
                 ? BigDecimal.ZERO
                 : cliente.getSaldoCorriente();
-        if (montoPago.compareTo(saldoActual) > 0) {
-            throw new IllegalArgumentException("El pago no puede superar la deuda pendiente");
-        }
 
         Pago.MetodoPago metodo = parseMetodoPago(metodoPago);
         BigDecimal restante = montoPago;
@@ -201,6 +210,7 @@ public class VentaService {
                     .monto(aplicar)
                     .metodoPago(metodo)
                     .referencia("Pago de cuenta corriente")
+                    .usuario(usuario)
                     .fecha(LocalDateTime.now())
                     .build());
             restante = restante.subtract(aplicar);
@@ -213,6 +223,7 @@ public class VentaService {
                     .monto(restante)
                     .metodoPago(metodo)
                     .referencia("Pago de cuenta corriente")
+                    .usuario(usuario)
                     .fecha(LocalDateTime.now())
                     .build());
         }

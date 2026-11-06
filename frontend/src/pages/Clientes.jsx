@@ -12,6 +12,7 @@ const Clientes = () => {
   const [busqueda, setBusqueda] = useState('');
   const [ajustandoSaldo, setAjustandoSaldo] = useState(null);
   const [montoAjuste, setMontoAjuste] = useState('');
+  const [passwordAjuste, setPasswordAjuste] = useState('');
 
   useEffect(() => {
     fetchClientes();
@@ -59,15 +60,24 @@ const Clientes = () => {
       toast.error('Ingresá un monto válido');
       return;
     }
+    if (tipo === 'restar' && !passwordAjuste.trim()) {
+      toast.error('Ingresá tu contraseña para autorizar el pago');
+      return;
+    }
     
     try {
-      await api.patch(`/api/clientes/${clienteId}/saldo`, { monto, tipo });
-      toast.success(tipo === 'restar' ? 'Deuda reducida' : 'Deuda aumentada');
+      await api.patch(`/api/clientes/${clienteId}/saldo`, {
+        monto,
+        tipo,
+        password: tipo === 'restar' ? passwordAjuste : undefined
+      });
+      toast.success(tipo === 'restar' ? 'Pago registrado' : 'Deuda aumentada');
       setAjustandoSaldo(null);
       setMontoAjuste('');
+      setPasswordAjuste('');
       fetchClientes();
     } catch (error) {
-      toast.error('Error al ajustar saldo');
+      toast.error(error.response?.data?.message || 'Error al ajustar saldo');
     }
   };
 
@@ -161,48 +171,74 @@ const Clientes = () => {
               )}
             </div>
 
-            {cliente.saldoCorriente > 0 && (
+            {cliente.saldoCorriente !== 0 && (
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-500">Saldo pendiente</span>
-                  <span className="font-semibold text-red-600">
-                    {formatMoney(cliente.saldoCorriente, 'ARS')}
+                  <span className="text-sm text-gray-500">
+                    {cliente.saldoCorriente > 0 ? 'Saldo pendiente' : 'Saldo a favor'}
+                  </span>
+                  <span className={`font-semibold ${cliente.saldoCorriente > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {formatMoney(Math.abs(cliente.saldoCorriente), 'ARS')}
                   </span>
                 </div>
-                {ajustandoSaldo === cliente.id ? (
-                  <div className="flex gap-2">
+                {cliente.saldoCorriente > 0 && (ajustandoSaldo === cliente.id ? (
+                  <div className="flex flex-col gap-2">
                     <input
                       type="number"
                       value={montoAjuste}
                       onChange={(e) => setMontoAjuste(e.target.value)}
                       placeholder="Monto"
-                      className="input text-sm flex-1"
+                      className="input text-sm"
                       min="0"
                       step="0.01"
                       autoFocus
                     />
-                    <button
-                      onClick={() => handleAjustarSaldo(cliente.id, 'restar')}
-                      className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700"
-                    >
-                      Pagar
-                    </button>
-                    <button
-                      onClick={() => { setAjustandoSaldo(null); setMontoAjuste(''); }}
-                      className="px-3 py-1 text-xs bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300"
-                    >
-                      Cancelar
-                    </button>
+                    <input
+                      type="password"
+                      value={passwordAjuste}
+                      onChange={(e) => setPasswordAjuste(e.target.value)}
+                      placeholder="Tu contraseña"
+                      autoComplete="current-password"
+                      className="input text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleAjustarSaldo(cliente.id, 'restar')}
+                        className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      >
+                        Autorizar pago
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAjustandoSaldo(null);
+                          setMontoAjuste('');
+                          setPasswordAjuste('');
+                        }}
+                        className="px-3 py-1 text-xs bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                    {parseFloat(montoAjuste) > cliente.saldoCorriente && (
+                      <p className="text-xs text-orange-600">
+                        El monto supera la deuda: quedará un saldo a favor de{' '}
+                        {formatMoney(parseFloat(montoAjuste) - cliente.saldoCorriente, 'ARS')}.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <button
-                    onClick={() => setAjustandoSaldo(cliente.id)}
+                    onClick={() => {
+                      setAjustandoSaldo(cliente.id);
+                      setMontoAjuste('');
+                      setPasswordAjuste('');
+                    }}
                     className="w-full flex items-center justify-center gap-1 text-xs text-primary-600 hover:text-primary-800 py-1"
                   >
                     <DollarSign className="w-3 h-3" />
                     Registrar pago
                   </button>
-                )}
+                ))}
               </div>
             )}
           </div>

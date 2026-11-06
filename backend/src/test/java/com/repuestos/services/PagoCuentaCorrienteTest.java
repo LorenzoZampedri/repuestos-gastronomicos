@@ -23,7 +23,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @DataJpaTest
 @Import({VentaService.class, ClienteService.class, ProductoService.class, ConfiguracionService.class})
@@ -181,18 +180,59 @@ class PagoCuentaCorrienteTest {
     }
 
     @Test
-    void pagoCuentaCorrienteMayorAlSaldoRechazadoYSinCambios() {
+    void pagoCuentaCorrienteMayorAlSaldoGeneraSaldoAFavor() {
+        Venta v1 = crearVenta("50.00", LocalDateTime.of(2026, 1, 1, 10, 0));
+        fijarSaldoCliente("50.00");
+
+        pagarCuentaCorrienteComoRequest("60.00");
+
+        Venta r1 = recargarVenta(v1.getId());
+        assertEquals(Venta.EstadoVenta.PAGADA, r1.getEstado(),
+                "la venta debe quedar pagada con la parte que cubre la deuda");
+        assertEquals(0, new BigDecimal("50.00").compareTo(montoPagadoReal(v1.getId())));
+        assertEquals(0, new BigDecimal("-10.00").compareTo(saldoCliente()),
+                "el sobrepago debe quedar como saldo a favor (saldo negativo)");
+
+        entityManager.clear();
+        BigDecimal pagosSinVenta = pagoRepository.findPagosPorCliente(cliente.getId()).stream()
+                .filter(p -> p.getVenta() == null)
+                .map(Pago::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertEquals(0, new BigDecimal("10.00").compareTo(pagosSinVenta),
+                "el excedente debe registrarse como pago sin venta");
+    }
+
+    @Test
+    void pagoCuentaCorrienteRegistraUsuarioQueAutoriza() {
         Venta v1 = crearVenta("50.00", LocalDateTime.of(2026, 1, 1, 10, 0));
         fijarSaldoCliente("50.00");
 
         entityManager.clear();
-        assertThrows(IllegalArgumentException.class,
-                () -> ventaService.registrarPagoCuentaCorriente(cliente.getId(), new BigDecimal("60.00"), "EFECTIVO"));
+        ventaService.registrarPagoCuentaCorriente(
+                cliente.getId(), new BigDecimal("50.00"), "EFECTIVO", usuario);
+        entityManager.flush();
+        entityManager.clear();
 
-        Venta r1 = recargarVenta(v1.getId());
-        assertEquals(Venta.EstadoVenta.PENDIENTE, r1.getEstado());
-        assertEquals(0, BigDecimal.ZERO.compareTo(montoPagadoReal(v1.getId())));
-        assertEquals(0, new BigDecimal("50.00").compareTo(saldoCliente()));
+        List<Pago> pagos = pagoRepository.findPagosPorCliente(cliente.getId());
+        assertEquals(1, pagos.size());
+        assertEquals(usuario.getId(), pagos.get(0).getUsuario().getId(),
+                "el pago debe registrar al usuario que lo autorizó");
+        assertEquals(v1.getId(), pagos.get(0).getVenta().getId());
+    }
+
+    @Test
+    void ajustarSaldoRestarRegistraUsuarioQueAutoriza() {
+        fijarSaldoCliente("50.00");
+
+        entityManager.clear();
+        clienteService.ajustarSaldo(
+                cliente.getId(), new BigDecimal("50.00"), "restar", "EFECTIVO", usuario);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Pago> pagos = pagoRepository.findPagosPorCliente(cliente.getId());
+        assertEquals(1, pagos.size());
+        assertEquals(usuario.getId(), pagos.get(0).getUsuario().getId());
     }
 
     @Test
@@ -220,13 +260,17 @@ class PagoCuentaCorrienteTest {
     }
 
     @Test
-    void ajustarSaldoRestarMayorAlSaldoRechazado() {
+    void ajustarSaldoRestarMayorAlSaldoGeneraSaldoAFavor() {
         fijarSaldoCliente("30.00");
 
         entityManager.clear();
-        assertThrows(IllegalArgumentException.class,
-                () -> clienteService.ajustarSaldo(cliente.getId(), new BigDecimal("50.00"), "restar", "EFECTIVO"));
-        assertEquals(0, new BigDecimal("30.00").compareTo(saldoCliente()));
+        Cliente resultado = clienteService.ajustarSaldo(
+                cliente.getId(), new BigDecimal("50.00"), "restar", "EFECTIVO");
+        entityManager.flush();
+
+        assertEquals(0, new BigDecimal("-20.00").compareTo(resultado.getSaldoCorriente()));
+        assertEquals(0, new BigDecimal("-20.00").compareTo(saldoCliente()),
+                "el excedente debe quedar como saldo a favor (saldo negativo)");
     }
 
     @Test

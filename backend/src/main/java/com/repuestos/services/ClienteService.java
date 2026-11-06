@@ -2,6 +2,7 @@ package com.repuestos.services;
 
 import com.repuestos.models.Cliente;
 import com.repuestos.models.Pago;
+import com.repuestos.models.Usuario;
 import com.repuestos.repositories.ClienteRepository;
 import com.repuestos.repositories.PagoRepository;
 import lombok.RequiredArgsConstructor;
@@ -60,6 +61,12 @@ public class ClienteService {
     
     @Transactional
     public Cliente ajustarSaldo(Long id, BigDecimal monto, String tipo, String metodoPago) {
+        return ajustarSaldo(id, monto, tipo, metodoPago, null);
+    }
+
+    @Transactional
+    public Cliente ajustarSaldo(Long id, BigDecimal monto, String tipo, String metodoPago,
+                                Usuario usuario) {
         Cliente cliente = buscarPorId(id);
         if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El monto debe ser mayor a cero");
@@ -75,7 +82,7 @@ public class ClienteService {
         } else if ("restar".equals(tipo)) {
             // El pago se aplica a las ventas abiertas del cliente (más antiguas primero)
             // y descuenta el saldoCorriente exactamente una vez.
-            ventaService.registrarPagoCuentaCorriente(id, monto, metodoPago);
+            ventaService.registrarPagoCuentaCorriente(id, monto, metodoPago, usuario);
             return buscarPorId(id);
         } else {
             throw new IllegalArgumentException("Tipo de ajuste inválido");

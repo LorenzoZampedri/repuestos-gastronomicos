@@ -418,6 +418,28 @@ const Ventas = () => {
                 </div>
               )}
 
+              {ventaSeleccionada.pagos && ventaSeleccionada.pagos.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Pagos registrados</p>
+                  <div className="space-y-2">
+                    {ventaSeleccionada.pagos.map((pago) => (
+                      <div key={pago.id} className="flex justify-between text-sm bg-green-50 p-2 rounded">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {formatMoney(pago.monto, 'ARS')} · {pago.metodoPago}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(pago.fecha).toLocaleString('es-AR')} · Registrado por{' '}
+                            {pago.usuario?.nombre || pago.usuario?.username || 'usuario no registrado'}
+                          </p>
+                        </div>
+                        <span className="text-xs text-gray-500">#{pago.id}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="border-t pt-4">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-bold">Total</span>

@@ -65,11 +65,13 @@ public class VentaController {
     
     @PostMapping("/{id}/pago")
     public ResponseEntity<Pago> registrarPago(@PathVariable Long id, @RequestBody PagoRequest request) {
+        Usuario usuario = usuarioService.verificarPasswordActual(request.getPassword());
         Pago pago = Pago.builder()
             .monto(request.getMonto())
             .metodoPago(Pago.MetodoPago.valueOf(request.getMetodoPago()))
             .moneda(request.getMoneda())
             .referencia(request.getReferencia())
+            .usuario(usuario)
             .build();
         
         return ResponseEntity.ok(ventaService.registrarPago(id, pago));
@@ -103,5 +105,6 @@ public class VentaController {
         private String metodoPago;
         private String moneda;
         private String referencia;
+        private String password;
     }
 }

@@ -2,7 +2,9 @@ package com.repuestos.controllers;
 
 import com.repuestos.models.Cliente;
 import com.repuestos.models.Pago;
+import com.repuestos.models.Usuario;
 import com.repuestos.services.ClienteService;
+import com.repuestos.services.UsuarioService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,7 @@ import java.util.List;
 public class ClienteController {
     
     private final ClienteService clienteService;
+    private final UsuarioService usuarioService;
     
     @GetMapping
     public ResponseEntity<List<Cliente>> listarTodos() {
@@ -56,7 +59,11 @@ public class ClienteController {
     
     @PatchMapping("/{id}/saldo")
     public ResponseEntity<Cliente> ajustarSaldo(@PathVariable Long id, @RequestBody AjustarSaldoRequest request) {
-        return ResponseEntity.ok(clienteService.ajustarSaldo(id, request.getMonto(), request.getTipo(), request.getMetodoPago()));
+        Usuario usuario = "restar".equals(request.getTipo())
+                ? usuarioService.verificarPasswordActual(request.getPassword())
+                : null;
+        return ResponseEntity.ok(clienteService.ajustarSaldo(
+                id, request.getMonto(), request.getTipo(), request.getMetodoPago(), usuario));
     }
     
     @GetMapping("/{id}/pagos")
@@ -69,5 +76,6 @@ public class ClienteController {
         private BigDecimal monto;
         private String tipo; // "sumar" o "restar"
         private String metodoPago; // opcional: EFECTIVO, TARJETA, TRANSFERENCIA, OTRO
+        private String password; // requerida para acreditar pagos ("restar")
     }
 }
