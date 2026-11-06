@@ -32,7 +32,9 @@ public record VentaResponse(
                 venta.getEstado().name(),
                 venta.getObservaciones(),
                 venta.getDetalles().stream().map(DetalleVentaResponse::desde).toList(),
-                venta.getPagos().stream().map(PagoResponse::desde).toList(),
+                incluirCuentaCorriente
+                        ? venta.getPagos().stream().map(PagoResponse::desde).toList()
+                        : null,
                 incluirCuentaCorriente ? venta.getMontoPagado() : null,
                 incluirCuentaCorriente ? venta.getSaldoPendiente() : null,
                 venta.getCreatedAt());

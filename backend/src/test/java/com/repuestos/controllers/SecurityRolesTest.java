@@ -183,6 +183,7 @@ class SecurityRolesTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.montoPagado").doesNotExist())
                 .andExpect(jsonPath("$.saldoPendiente").doesNotExist())
+                .andExpect(jsonPath("$.pagos").doesNotExist())
                 .andExpect(jsonPath("$.cliente.saldoCorriente").doesNotExist());
     }
 
@@ -196,6 +197,7 @@ class SecurityRolesTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.montoPagado").value(50.00))
                 .andExpect(jsonPath("$.saldoPendiente").value(50.00))
+                .andExpect(jsonPath("$.pagos[0].monto").value(50.00))
                 .andExpect(jsonPath("$.cliente.saldoCorriente").value(50.00));
     }
 
