@@ -1,5 +1,6 @@
 package com.repuestos.controllers;
 
+import com.repuestos.dto.ClienteResponse;
 import com.repuestos.models.Cliente;
 import com.repuestos.models.Usuario;
 import com.repuestos.services.ClienteService;
@@ -38,10 +39,11 @@ class ClienteControllerTest {
         when(clienteService.ajustarSaldo(eq(3L), eq(new BigDecimal("150.00")),
                 eq("restar"), eq("EFECTIVO"), eq(autorizador))).thenReturn(cliente);
 
-        Cliente resultado = clienteController.ajustarSaldo(3L,
+        ClienteResponse resultado = clienteController.ajustarSaldo(3L,
                 ajuste(new BigDecimal("150.00"), "restar", "EFECTIVO", "clave")).getBody();
 
-        assertEquals(cliente, resultado);
+        assertEquals(cliente.getId(), resultado.id());
+        assertEquals(cliente.getNombre(), resultado.nombre());
         verify(usuarioService).verificarPasswordActual("clave");
     }
 
@@ -51,10 +53,10 @@ class ClienteControllerTest {
         when(clienteService.ajustarSaldo(eq(3L), eq(new BigDecimal("80.00")),
                 eq("sumar"), eq(null), eq(null))).thenReturn(cliente);
 
-        Cliente resultado = clienteController.ajustarSaldo(3L,
+        ClienteResponse resultado = clienteController.ajustarSaldo(3L,
                 ajuste(new BigDecimal("80.00"), "sumar", null, null)).getBody();
 
-        assertEquals(cliente, resultado);
+        assertEquals(cliente.getId(), resultado.id());
         verify(usuarioService, never()).verificarPasswordActual(any());
     }
 
