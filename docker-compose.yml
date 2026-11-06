@@ -31,6 +31,7 @@ services:
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-repuestos123}
       JWT_SECRET: ${JWT_SECRET:-repuestos-secret-key-2024-change-in-production}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       APP_UPLOAD_DIR: /app/uploads
     volumes:
