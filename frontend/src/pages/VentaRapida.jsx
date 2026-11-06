@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Minus, Trash2, ShoppingCart, ArrowLeft, CreditCard } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { UMBRAL_DESCUENTO, PCT_DESCUENTO } from '../context/CurrencyContext';
 import { formatMoney } from '../utils/format';
 
@@ -16,6 +17,7 @@ const precioUnitarioItem = (item) => {
 
 const VentaRapida = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [productos, setProductos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [busqueda, setBusqueda] = useState('');
@@ -109,6 +111,11 @@ const VentaRapida = () => {
 
     const handleCompra = async () => {
     if (tipoOperacion === 'DEUDA') {
+      if (!isAdmin()) {
+        toast.error('Solo un administrador puede cargar deudas');
+        setTipoOperacion('VENTA');
+        return;
+      }
       if (!clienteSeleccionado) {
         toast.error('Seleccioná un cliente para cargar la deuda');
         return;
@@ -183,18 +190,20 @@ const VentaRapida = () => {
               {tipoOperacion === 'VENTA' ? 'Venta Rápida' : 'Cargar Deuda'}
             </h1>
           </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor="tipo-operacion" className="text-sm text-gray-700">Tipo:</label>
-            <select
-              id="tipo-operacion"
-              value={tipoOperacion}
-              onChange={(e) => setTipoOperacion(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="VENTA">Venta</option>
-              <option value="DEUDA">Cargar deuda</option>
-            </select>
-          </div>
+          {isAdmin() && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="tipo-operacion" className="text-sm text-gray-700">Tipo:</label>
+              <select
+                id="tipo-operacion"
+                value={tipoOperacion}
+                onChange={(e) => setTipoOperacion(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              >
+                <option value="VENTA">Venta</option>
+                <option value="DEUDA">Cargar deuda</option>
+              </select>
+            </div>
+          )}
         </div>
 
         {tipoOperacion === 'VENTA' && (

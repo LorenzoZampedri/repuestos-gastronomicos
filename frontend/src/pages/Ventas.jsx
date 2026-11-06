@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, Plus, Eye, Calendar, Filter, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import { formatMoney } from '../utils/format';
 
@@ -16,6 +17,7 @@ const leerFiltroInicial = () => {
 };
 
 const Ventas = () => {
+  const { isAdmin } = useAuth();
   const [ventas, setVentas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fechaInicio, setFechaInicio] = useState('');
@@ -284,7 +286,7 @@ const Ventas = () => {
                         >
                           <Eye className="w-4 h-4" aria-hidden="true" />
                         </button>
-                        {venta.estado !== 'ANULADA' && (
+                        {isAdmin() && venta.estado !== 'ANULADA' && (
                           <button
                             onClick={() => anularVenta(venta.id)}
                             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -418,7 +420,7 @@ const Ventas = () => {
                 </div>
               )}
 
-              {ventaSeleccionada.pagos && ventaSeleccionada.pagos.length > 0 && (
+              {isAdmin() && ventaSeleccionada.pagos && ventaSeleccionada.pagos.length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-gray-700 mb-2">Pagos registrados</p>
                   <div className="space-y-2">
@@ -447,7 +449,7 @@ const Ventas = () => {
                     {formatMoney(ventaSeleccionada.total, 'ARS')}
                   </span>
                 </div>
-                {ventaSeleccionada.estado !== 'ANULADA' && (
+                {isAdmin() && ventaSeleccionada.estado !== 'ANULADA' && (
                   <div className="mt-2 space-y-1 text-sm text-gray-600">
                     <div className="flex justify-between">
                       <span>Pagado</span>
@@ -463,7 +465,7 @@ const Ventas = () => {
                     </div>
                   </div>
                 )}
-                {ventaSeleccionada.estado !== 'ANULADA' && (
+                {isAdmin() && ventaSeleccionada.estado !== 'ANULADA' && (
                   <button
                     onClick={() => anularVenta(ventaSeleccionada.id)}
                     className="mt-4 w-full btn-danger flex items-center justify-center gap-2"

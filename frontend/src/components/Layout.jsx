@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import PageTransition from './PageTransition';
+import CambiarPasswordModal from './CambiarPasswordModal';
 import { 
   LayoutDashboard, 
   Package, 
@@ -12,11 +13,20 @@ import {
   Menu,
   X,
   LogOut,
-  User
+  User,
+  UserCog,
+  KeyRound
 } from 'lucide-react';
+
+const ROLE_LABELS = {
+  ADMIN: 'Administrador',
+  EMPLEADO: 'Empleado',
+  CLIENTE: 'Cliente',
+};
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
 
@@ -26,13 +36,14 @@ const Layout = () => {
   };
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    ...(isAdmin() ? [{ name: 'Dashboard', href: '/', icon: LayoutDashboard }] : []),
     { name: 'Productos', href: '/productos', icon: Package },
     { name: 'Ventas', href: '/ventas', icon: ShoppingCart, end: true },
     { name: 'Venta Rápida', href: '/ventas/nueva', icon: ShoppingCart },
+    { name: 'Clientes', href: '/clientes', icon: Users },
     ...(isAdmin() ? [
-      { name: 'Clientes', href: '/clientes', icon: Users },
       { name: 'Ctas. Corrientes', href: '/cuentas-corrientes', icon: CreditCard },
+      { name: 'Usuarios', href: '/usuarios', icon: UserCog },
       { name: 'Configuración', href: '/configuracion', icon: Settings },
     ] : []),
   ];
@@ -96,9 +107,17 @@ const Layout = () => {
                   {user?.nombre}
                 </p>
                 <p className="text-xs text-gray-500 truncate">
-                  {user?.rol}
+                  {ROLE_LABELS[user?.rol] || user?.rol}
                 </p>
               </div>
+              <button
+                onClick={() => setPasswordOpen(true)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                title="Cambiar contraseña"
+                aria-label="Cambiar contraseña"
+              >
+                <KeyRound className="w-5 h-5" aria-hidden="true" />
+              </button>
               <button
                 onClick={handleLogout}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
@@ -145,6 +164,8 @@ const Layout = () => {
           </PageTransition>
         </main>
       </div>
+
+      <CambiarPasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
     </div>
   );
 };

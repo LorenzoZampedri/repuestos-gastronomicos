@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Package, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -9,7 +9,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, homePorRol } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -17,11 +17,11 @@ const Login = () => {
     setLoading(true);
     
     try {
-      await login(username, password);
+      const data = await login(username, password);
       toast.success('¡Bienvenido!');
-      navigate('/');
+      navigate(homePorRol(data.rol), { replace: true });
     } catch (error) {
-      toast.error('Credenciales incorrectas');
+      toast.error(error.response?.data?.message || 'Credenciales incorrectas');
     } finally {
       setLoading(false);
     }
@@ -97,6 +97,13 @@ const Login = () => {
               )}
             </button>
           </form>
+
+          <p className="mt-6 text-center text-sm text-gray-600">
+            ¿No tenés cuenta?{' '}
+            <Link to="/registro" className="font-medium text-primary-800 hover:text-primary-700">
+              Crear cuenta
+            </Link>
+          </p>
         </div>
 
         {/* Demo credentials */}
