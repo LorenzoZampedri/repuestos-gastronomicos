@@ -55,9 +55,9 @@ export const CartProvider = ({ children }) => {
     toast.success('Producto eliminado del carrito');
   };
 
-  const clearCart = () => {
+  const clearCart = (silent = false) => {
     setItems([]);
-    toast.success('Carrito vaciado');
+    if (!silent) toast.success('Carrito vaciado');
   };
 
   const itemCount = items.length;
