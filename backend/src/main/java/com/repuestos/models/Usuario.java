@@ -47,6 +47,6 @@ public class Usuario {
     private LocalDateTime updatedAt;
     
     public enum Rol {
-        ADMIN, VENDEDOR, OPERARIO
+        ADMIN, EMPLEADO, CLIENTE
     }
 }
