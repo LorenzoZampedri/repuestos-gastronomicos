@@ -13,6 +13,7 @@ import com.repuestos.services.ClienteService;
 import com.repuestos.services.ConfiguracionService;
 import com.repuestos.services.DashboardService;
 import com.repuestos.services.ImagenStorageService;
+import com.repuestos.services.PedidoService;
 import com.repuestos.services.ProductoService;
 import com.repuestos.services.UsuarioService;
 import com.repuestos.services.VentaService;
@@ -50,6 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         CategoriaController.class,
         ClienteController.class,
         ConfiguracionController.class,
+        PedidoController.class,
         DashboardController.class,
         ProductoController.class,
         UsuarioController.class,
@@ -67,6 +69,7 @@ class SecurityRolesTest {
     @MockBean private ConfiguracionService configuracionService;
     @MockBean private DashboardService dashboardService;
     @MockBean private ImagenStorageService imagenStorageService;
+    @MockBean private PedidoService pedidoService;
     @MockBean private ProductoService productoService;
     @MockBean private UsuarioService usuarioService;
     @MockBean private VentaService ventaService;
@@ -226,6 +229,124 @@ class SecurityRolesTest {
         mockMvc.perform(get("/api/dashboard")).andExpect(status().isOk());
         mockMvc.perform(get("/api/usuarios")).andExpect(status().isOk());
         mockMvc.perform(get("/api/ventas/pendientes")).andExpect(status().isOk());
+    }
+
+    @Test
+    void sinTokenNoSePuedenUsarPedidos() throws Exception {
+        mockMvc.perform(post("/api/pedidos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"productoId\":1,\"cantidad\":1}],"
+                                + "\"telefono\":\"1155551234\"}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/pedidos/mios")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/pedidos/mios/contacto")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/pedidos")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/pedidos/1/convertir")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"metodoPago\":\"EFECTIVO\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "cliente", roles = "CLIENTE")
+    void clientePuedeCrearYConsultarSusPedidosPeroNoGestionarlos() throws Exception {
+        mockMvc.perform(post("/api/pedidos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"productoId\":1,\"cantidad\":1}],"
+                                + "\"telefono\":\"1155551234\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/pedidos/mios")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/pedidos/mios/contacto")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/pedidos/mios/1")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/pedidos")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/pedidos/1/convertir")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"metodoPago\":\"EFECTIVO\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/pedidos/1/rechazar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"motivo\":\"Sin stock\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "empleado", roles = "EMPLEADO")
+    void empleadoGestionaPedidosPeroNoCreaPedidosDeCliente() throws Exception {
+        when(usuarioService.usuarioActual()).thenReturn(Usuario.builder()
+                .id(2L).username("empleado").nombre("Empleado")
+                .rol(Usuario.Rol.EMPLEADO).build());
+        when(pedidoService.listarStaff(any(), eq(false))).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/pedidos")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/pedidos/pendientes/count")).andExpect(status().isOk());
+        mockMvc.perform(post("/api/pedidos/1/convertir")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"metodoPago\":\"EFECTIVO\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/pedidos/1/rechazar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"motivo\":\"Sin stock\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/pedidos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"productoId\":1,\"cantidad\":1}],"
+                                + "\"telefono\":\"1155551234\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/pedidos/mios")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/pedidos/mios/contacto")).andExpect(status().isForbidden());
+        mockMvc.perform(put("/api/pedidos/mios/1/cancelar")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void adminListaYConviertePedidosPeroNoCreaPedidosDeCliente() throws Exception {
+        when(usuarioService.usuarioActual()).thenReturn(Usuario.builder()
+                .id(1L).username("admin").nombre("Admin")
+                .rol(Usuario.Rol.ADMIN).build());
+        when(usuarioService.esAdminActual()).thenReturn(true);
+        when(pedidoService.listarStaff(any(), eq(true))).thenReturn(List.of());
+        when(pedidoService.contarPendientes()).thenReturn(3L);
+
+        mockMvc.perform(get("/api/pedidos")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/pedidos/pendientes/count"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(3));
+        mockMvc.perform(post("/api/pedidos/1/convertir")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"metodoPago\":\"CUENTA_CORRIENTE\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/pedidos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"productoId\":1,\"cantidad\":1}],"
+                                + "\"telefono\":\"1155551234\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/pedidos/mios")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void adminPuedeVincularUnClienteAUnUsuario() throws Exception {
+        when(usuarioService.vincularCliente(5L, 9L)).thenReturn(Usuario.builder()
+                .id(5L).username("cliente").nombre("Cliente")
+                .rol(Usuario.Rol.CLIENTE).activo(true).build());
+
+        mockMvc.perform(put("/api/usuarios/5/cliente")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clienteId\":9}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(5));
+
+        verify(usuarioService).vincularCliente(5L, 9L);
+    }
+
+    @Test
+    @WithMockUser(username = "cliente", roles = "CLIENTE")
+    void clienteNoPuedeVincularClientes() throws Exception {
+        mockMvc.perform(put("/api/usuarios/5/cliente")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clienteId\":9}"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
