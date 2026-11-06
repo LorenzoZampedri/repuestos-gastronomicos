@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Edit2, KeyRound, Power, PowerOff, UserCog, Mail } from 'lucide-react';
+import { Search, Plus, Edit2, KeyRound, Power, PowerOff, UserCog, Mail, Link2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -278,6 +278,94 @@ const ResetPasswordModal = ({ open, usuario, onClose }) => {
   );
 };
 
+const VincularClienteModal = ({ open, usuario, onClose, onSaved }) => {
+  const [clientes, setClientes] = useState([]);
+  const [clienteId, setClienteId] = useState('');
+  const [cargando, setCargando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    if (!open || !usuario) return;
+
+    setClienteId(usuario.clienteId ? String(usuario.clienteId) : '');
+    setGuardando(false);
+    setCargando(true);
+    api.get('/api/clientes')
+      .then((response) => setClientes(response.data))
+      .catch((error) => toast.error(error.response?.data?.message || 'No se pudieron cargar los clientes'))
+      .finally(() => setCargando(false));
+  }, [open, usuario]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!clienteId) {
+      toast.error('Seleccioná un cliente');
+      return;
+    }
+
+    setGuardando(true);
+    try {
+      await api.put(`/api/usuarios/${usuario.id}/cliente`, {
+        clienteId: Number(clienteId),
+      });
+      toast.success('Cliente vinculado');
+      onSaved();
+      onClose();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'No se pudo vincular el cliente');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <Modal open={open && !!usuario} onClose={onClose} labelledBy="vincular-cliente-titulo">
+      <div className="p-6">
+        <h3 id="vincular-cliente-titulo" className="text-lg font-semibold mb-1">
+          Vincular cliente
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Usuario: <span className="font-medium text-gray-700">{usuario?.username}</span>
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="vincular-cliente" className="label">Ficha de cliente</label>
+            <select
+              id="vincular-cliente"
+              value={clienteId}
+              onChange={(e) => setClienteId(e.target.value)}
+              className="input"
+              disabled={cargando || guardando}
+              required
+            >
+              <option value="">Seleccionar cliente...</option>
+              {clientes.map((cliente) => (
+                <option key={cliente.id} value={cliente.id}>
+                  {cliente.nombre}{cliente.telefono ? ` — ${cliente.telefono}` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Solo se muestran clientes activos. Al vincular, los pedidos del usuario se
+              reasignan a la ficha elegida.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="btn-secondary">
+              Cancelar
+            </button>
+            <button type="submit" disabled={cargando || guardando} className="btn-primary">
+              {guardando ? 'Vinculando...' : 'Vincular'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </Modal>
+  );
+};
+
 const Usuarios = () => {
   const { user } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
@@ -288,6 +376,7 @@ const Usuarios = () => {
   const [formOpen, setFormOpen] = useState(false);
   const [usuarioEditando, setUsuarioEditando] = useState(null);
   const [usuarioPassword, setUsuarioPassword] = useState(null);
+  const [usuarioCliente, setUsuarioCliente] = useState(null);
 
   useEffect(() => {
     fetchUsuarios();
@@ -426,6 +515,13 @@ const Usuarios = () => {
                               )}
                             </p>
                             <p className="text-sm text-gray-500">@{usuario.username}</p>
+                            {usuario.rol === 'CLIENTE' && (
+                              <p className="text-xs text-gray-400">
+                                {usuario.clienteNombre
+                                  ? `Cliente: ${usuario.clienteNombre}`
+                                  : 'Cliente sin vincular'}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -459,6 +555,16 @@ const Usuarios = () => {
                           >
                             <Edit2 className="w-4 h-4" aria-hidden="true" />
                           </button>
+                          {usuario.rol === 'CLIENTE' && (
+                            <button
+                              onClick={() => setUsuarioCliente(usuario)}
+                              className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                              title="Vincular cliente"
+                              aria-label={`Vincular cliente de ${usuario.username}`}
+                            >
+                              <Link2 className="w-4 h-4" aria-hidden="true" />
+                            </button>
+                          )}
                           <button
                             onClick={() => setUsuarioPassword(usuario)}
                             className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
@@ -507,6 +613,13 @@ const Usuarios = () => {
         open={!!usuarioPassword}
         usuario={usuarioPassword}
         onClose={() => setUsuarioPassword(null)}
+      />
+
+      <VincularClienteModal
+        open={!!usuarioCliente}
+        usuario={usuarioCliente}
+        onClose={() => setUsuarioCliente(null)}
+        onSaved={fetchUsuarios}
       />
     </div>
   );
