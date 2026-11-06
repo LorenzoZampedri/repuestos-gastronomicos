@@ -18,6 +18,8 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
     
     @EntityGraph(attributePaths = {"cliente", "usuario"})
     List<Venta> findByClienteId(Long clienteId);
+
+    boolean existsByClienteId(Long clienteId);
     
     @Query("SELECT COALESCE(SUM(v.total), 0) FROM Venta v WHERE v.fecha BETWEEN :inicio AND :fin AND v.estado <> 'ANULADA'")
     BigDecimal sumVentasPorPeriodo(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);

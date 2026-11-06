@@ -5,6 +5,7 @@ import com.repuestos.dto.ResetPasswordRequest;
 import com.repuestos.dto.UsuarioActualizarRequest;
 import com.repuestos.dto.UsuarioCrearRequest;
 import com.repuestos.dto.UsuarioResponse;
+import com.repuestos.dto.VincularClienteRequest;
 import com.repuestos.models.Usuario;
 import com.repuestos.services.UsuarioService;
 import jakarta.validation.Valid;
@@ -44,6 +45,14 @@ public class UsuarioController {
             @Valid @RequestBody UsuarioActualizarRequest request) {
         Usuario actualizado = usuarioService.actualizar(id, request, usuarioService.usernameActual());
         return ResponseEntity.ok(UsuarioResponse.desde(actualizado));
+    }
+
+    @PutMapping("/{id}/cliente")
+    public ResponseEntity<UsuarioResponse> vincularCliente(
+            @PathVariable Long id,
+            @Valid @RequestBody VincularClienteRequest request) {
+        return ResponseEntity.ok(UsuarioResponse.desde(
+                usuarioService.vincularCliente(id, request.clienteId())));
     }
 
     @PutMapping("/{id}/password")

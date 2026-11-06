@@ -24,6 +24,7 @@ public class UsuarioService implements UserDetailsService {
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ClienteService clienteService;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -60,7 +61,11 @@ public class UsuarioService implements UserDetailsService {
         usuario.setEmail(normalizarEmail(usuario.getEmail()));
         usuario.setActivo(usuario.getActivo() == null || usuario.getActivo());
         usuario.setPasswordHash(passwordEncoder.encode(usuario.getPasswordHash()));
-        return usuarioRepository.save(usuario);
+        Usuario guardado = usuarioRepository.save(usuario);
+        if (guardado.getRol() == Usuario.Rol.CLIENTE) {
+            clienteService.asegurarClienteParaUsuario(guardado);
+        }
+        return guardado;
     }
 
     public Usuario registrarCliente(String username, String password, String nombre, String email) {
@@ -85,6 +90,10 @@ public class UsuarioService implements UserDetailsService {
                 .activo(true)
                 .build();
         return registrar(usuario);
+    }
+
+    public Usuario vincularCliente(Long usuarioId, Long clienteId) {
+        return clienteService.vincularClienteAUsuario(usuarioId, clienteId);
     }
 
     public List<Usuario> listar(Usuario.Rol rol, Boolean activo) {
@@ -123,7 +132,11 @@ public class UsuarioService implements UserDetailsService {
         usuario.setEmail(normalizarEmail(request.email()));
         usuario.setRol(request.rol());
         usuario.setActivo(request.activo());
-        return usuarioRepository.save(usuario);
+        Usuario guardado = usuarioRepository.save(usuario);
+        if (guardado.getRol() == Usuario.Rol.CLIENTE) {
+            clienteService.asegurarClienteParaUsuario(guardado);
+        }
+        return guardado;
     }
 
     public Usuario cambiarActivo(Long id, Boolean activo, String usernameActual) {
@@ -178,6 +191,10 @@ public class UsuarioService implements UserDetailsService {
             throw new NegocioException(HttpStatus.UNAUTHORIZED, "Usuario no autenticado");
         }
         return authentication.getName();
+    }
+
+    public Usuario usuarioActual() {
+        return buscarPorUsername(usernameActual());
     }
 
     public boolean esAdminActual() {

@@ -2,7 +2,9 @@ package com.repuestos.services;
 
 import com.repuestos.config.PasswordEncoderConfig;
 import com.repuestos.dto.UsuarioActualizarRequest;
+import com.repuestos.models.Cliente;
 import com.repuestos.models.Usuario;
+import com.repuestos.repositories.ClienteRepository;
 import com.repuestos.repositories.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,11 +20,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
-@Import({UsuarioService.class, PasswordEncoderConfig.class})
+@Import({UsuarioService.class, ClienteService.class, VentaService.class, ProductoService.class, ConfiguracionService.class, PasswordEncoderConfig.class})
 class UsuarioServiceTest {
 
     @Autowired private UsuarioService usuarioService;
     @Autowired private UsuarioRepository usuarioRepository;
+    @Autowired private ClienteRepository clienteRepository;
     @Autowired private PasswordEncoder passwordEncoder;
 
     private Usuario usuario;
@@ -69,6 +72,27 @@ class UsuarioServiceTest {
         assertEquals("cliente@example.com", registrado.getEmail());
         assertTrue(registrado.getActivo());
         assertTrue(passwordEncoder.matches("clave-segura", registrado.getPasswordHash()));
+
+        Cliente cliente = usuarioService.buscarPorId(registrado.getId()).getCliente();
+        assertTrue(cliente != null);
+        assertEquals("Cliente Nuevo", cliente.getNombre());
+        assertEquals("cliente@example.com", cliente.getEmail());
+        assertEquals(0, cliente.getSaldoCorriente().compareTo(java.math.BigDecimal.ZERO));
+        assertTrue(cliente.getActivo());
+    }
+
+    @Test
+    void registrarClienteNoDuplicaElClienteVinculado() {
+        Usuario registrado = usuarioService.registrarCliente(
+                "cliente-idempotente-" + System.nanoTime(), "clave-segura", "Cliente Idempotente", null);
+        Long clienteId = registrado.getCliente().getId();
+
+        UsuarioActualizarRequest request = new UsuarioActualizarRequest(
+                "Cliente Idempotente", null, Usuario.Rol.CLIENTE, true);
+        Usuario actualizado = usuarioService.actualizar(registrado.getId(), request, "admin");
+
+        assertEquals(clienteId, actualizado.getCliente().getId());
+        assertEquals(1, clienteRepository.count());
     }
 
     @Test
