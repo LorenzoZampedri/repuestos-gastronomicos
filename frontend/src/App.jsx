@@ -24,6 +24,8 @@ import CuentasCorrientes from './pages/CuentasCorrientes';
 import Catalogo from './pages/Catalogo';
 import Configuracion from './pages/Configuracion';
 import Usuarios from './pages/Usuarios';
+import MisPedidos from './pages/MisPedidos';
+import Pedidos from './pages/Pedidos';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -130,6 +132,14 @@ function App() {
               <Catalogo />
             </PublicLayout>
           } />
+
+          <Route path="/mis-pedidos" element={
+            <ProtectedRoute allowedRoles={['CLIENTE']}>
+              <PublicLayout>
+                <MisPedidos />
+              </PublicLayout>
+            </ProtectedRoute>
+          } />
           
           {/* Protected Routes */}
           <Route path="/" element={
@@ -141,6 +151,7 @@ function App() {
             <Route path="productos" element={<Productos />} />
             <Route path="productos/nuevo" element={<ProductoForm />} />
             <Route path="productos/:id" element={<ProductoForm />} />
+            <Route path="pedidos" element={<Pedidos />} />
             <Route path="ventas" element={<Ventas />} />
             <Route path="ventas/nueva" element={<VentaRapida />} />
             <Route path="clientes" element={<Clientes />} />

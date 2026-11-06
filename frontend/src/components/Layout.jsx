@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import PageTransition from './PageTransition';
 import CambiarPasswordModal from './CambiarPasswordModal';
@@ -15,7 +16,8 @@ import {
   LogOut,
   User,
   UserCog,
-  KeyRound
+  KeyRound,
+  ClipboardList
 } from 'lucide-react';
 
 const ROLE_LABELS = {
@@ -27,8 +29,30 @@ const ROLE_LABELS = {
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [pendingOrders, setPendingOrders] = useState(0);
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    let activo = true;
+    const fetchPendientes = async () => {
+      try {
+        const response = await api.get('/api/pedidos/pendientes/count');
+        if (activo) setPendingOrders(response.data.count || 0);
+      } catch (error) {
+        if (activo) setPendingOrders(0);
+      }
+    };
+
+    fetchPendientes();
+    window.addEventListener('pedidos-actualizados', fetchPendientes);
+
+    return () => {
+      activo = false;
+      window.removeEventListener('pedidos-actualizados', fetchPendientes);
+    };
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -38,6 +62,7 @@ const Layout = () => {
   const navigation = [
     ...(isAdmin() ? [{ name: 'Dashboard', href: '/', icon: LayoutDashboard }] : []),
     { name: 'Productos', href: '/productos', icon: Package },
+    { name: 'Pedidos', href: '/pedidos', icon: ClipboardList, badge: pendingOrders },
     { name: 'Ventas', href: '/ventas', icon: ShoppingCart, end: true },
     { name: 'Venta Rápida', href: '/ventas/nueva', icon: ShoppingCart },
     { name: 'Clientes', href: '/clientes', icon: Users },
@@ -91,7 +116,12 @@ const Layout = () => {
                 onClick={() => setSidebarOpen(false)}
               >
                 <item.icon className="w-5 h-5" />
-                {item.name}
+                <span className="flex-1">{item.name}</span>
+                {item.badge > 0 && (
+                  <span className="min-w-5 h-5 px-1 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                    {item.badge}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>
