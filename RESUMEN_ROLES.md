@@ -87,7 +87,9 @@ Commits de la rama:
 3. `98d721c` - matriz de seguridad.
 4. `80ff5f4` - DTOs para ocultar datos sensibles.
 5. `13bc705` - tests de roles y reglas de usuarios.
-6. Commit pendiente - adaptación frontend, manejo de 403, registro, usuarios y documentación.
+6. `69ac646` - adaptación frontend, rutas, registro, usuarios y manejo de 403.
+7. `1ebd3f5` - documentación de roles y despliegue.
+8. `783dda3` - ocultamiento de pagos de cuenta corriente a EMPLEADO.
 
 ## c) Verificación
 
@@ -121,14 +123,16 @@ docker run --rm \
 
 Resultado: build de Vite correcto.
 
-Pruebas manuales sugeridas/realizadas:
+Pruebas manuales realizadas con el stack Docker:
 
-- Login de ADMIN, EMPLEADO y CLIENTE con redirección correcta.
-- Registro público de CLIENTE y auto-login.
-- EMPLEADO sin acceso a cuentas corrientes, usuarios, dashboard ni anulación.
-- EMPLEADO sin datos de saldo en clientes/ventas.
-- ADMIN con acceso completo.
-- Usuario inactivo rechazado con 403.
+- Login de ADMIN, EMPLEADO y CLIENTE correcto.
+- ADMIN accede a `/api/usuarios` (200); EMPLEADO y CLIENTE reciben 403.
+- EMPLEADO puede listar clientes y ventas, pero sin `saldoCorriente`,
+  `montoPagado`, `saldoPendiente` ni `pagos`.
+- EMPLEADO recibe 403 en dashboard y deudores de cuentas corrientes.
+- Catálogo público accesible sin token.
+- `RolMigration` verificada en PostgreSQL al iniciar el backend.
+- Usuarios de prueba eliminados después de la verificación.
 
 ## d) Puesta en marcha y consideraciones
 
