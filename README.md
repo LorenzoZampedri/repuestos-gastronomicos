@@ -13,6 +13,7 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 - **Cuentas corrientes** - Gestión de deudas y pagos
 - **Catálogo público** - Web para clientes
 - **Pedidos online** - Carrito, seguimiento y conversión a venta
+- **Precios masivos y cotización** - Actualización en dólares con vista previa, lotes históricos, reversión y sincronización automática de pesos (ARS)
 - **Auditoría** - Registro inmutable de acciones y accesos, consultable solo por ADMIN
 - **Multi-rol** - Admin, Empleado y Cliente
 - **Responsive** - Funciona en celular y PC
@@ -21,7 +22,7 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 
 | Rol | Alcance |
 |-----|---------|
-| **ADMIN** | Acceso completo: dashboard, productos, ventas, clientes, cuentas corrientes, usuarios, configuración y logs de auditoría. |
+| **ADMIN** | Acceso completo: dashboard, productos, precios masivos, ventas, clientes, cuentas corrientes, usuarios, configuración y logs de auditoría. |
 | **EMPLEADO** | Productos (crear/editar), ventas con efectivo/tarjeta/transferencia/otro y clientes (crear/editar). No puede vender a cuenta corriente (solo ADMIN), eliminar productos/clientes, anular ventas, ver cuentas corrientes, administrar usuarios ni consultar logs. |
 | **CLIENTE** | Catálogo público, carrito, pedidos online y consulta por WhatsApp. Puede registrarse desde `/registro` y hace seguimiento en `/mis-pedidos`. |
 

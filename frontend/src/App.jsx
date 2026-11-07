@@ -23,6 +23,7 @@ import ClienteForm from './pages/ClienteForm';
 import CuentasCorrientes from './pages/CuentasCorrientes';
 import Catalogo from './pages/Catalogo';
 import Configuracion from './pages/Configuracion';
+import Precios from './pages/Precios';
 import Usuarios from './pages/Usuarios';
 import MisPedidos from './pages/MisPedidos';
 import Pedidos from './pages/Pedidos';
@@ -168,11 +169,16 @@ function App() {
                 <Usuarios />
               </ProtectedRoute>
             } />
-            <Route path="configuracion" element={
-              <ProtectedRoute allowedRoles={['ADMIN']}>
-                <Configuracion />
-              </ProtectedRoute>
-            } />
+             <Route path="configuracion" element={
+               <ProtectedRoute allowedRoles={['ADMIN']}>
+                 <Configuracion />
+               </ProtectedRoute>
+             } />
+             <Route path="precios" element={
+               <ProtectedRoute allowedRoles={['ADMIN']}>
+                 <Precios />
+               </ProtectedRoute>
+             } />
             <Route path="logs" element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
                 <Logs />

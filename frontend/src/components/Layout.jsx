@@ -18,7 +18,8 @@ import {
   UserCog,
   KeyRound,
   ClipboardList,
-  ScrollText
+  ScrollText,
+  Percent
 } from 'lucide-react';
 
 const ROLE_LABELS = {
@@ -68,6 +69,7 @@ const Layout = () => {
     { name: 'Venta Rápida', href: '/ventas/nueva', icon: ShoppingCart },
     { name: 'Clientes', href: '/clientes', icon: Users },
     ...(isAdmin() ? [
+      { name: 'Precios', href: '/precios', icon: Percent },
       { name: 'Ctas. Corrientes', href: '/cuentas-corrientes', icon: CreditCard },
       { name: 'Usuarios', href: '/usuarios', icon: UserCog },
       { name: 'Logs', href: '/logs', icon: ScrollText },
