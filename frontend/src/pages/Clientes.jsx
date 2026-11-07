@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Plus, Edit2, Trash2, Users, Phone, Mail, DollarSign } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Users, Phone, Mail, DollarSign, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import EmptyState from '../components/EmptyState';
+import Avatar from '../components/Avatar';
+import SelectorFoto from '../components/SelectorFoto';
 import { formatMoney } from '../utils/format';
 
 const Clientes = () => {
@@ -15,6 +17,7 @@ const Clientes = () => {
   const [ajustandoSaldo, setAjustandoSaldo] = useState(null);
   const [montoAjuste, setMontoAjuste] = useState('');
   const [passwordAjuste, setPasswordAjuste] = useState('');
+  const [clienteFoto, setClienteFoto] = useState(null);
 
   useEffect(() => {
     fetchClientes();
@@ -132,15 +135,21 @@ const Clientes = () => {
           <div key={cliente.id} className="card hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
-                  <Users className="w-6 h-6 text-primary-800" />
-                </div>
+                <Avatar fotoUrl={cliente.fotoUrl} nombre={cliente.nombre} size="lg" tipo="cliente" />
                 <div>
                   <h3 className="font-semibold text-gray-900">{cliente.nombre}</h3>
                   <p className="text-sm text-gray-500">{cliente.condicionIva}</p>
                 </div>
               </div>
               <div className="flex gap-1">
+                <button
+                  onClick={() => setClienteFoto(cliente)}
+                  className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  aria-label={`Cambiar foto de ${cliente.nombre}`}
+                  title="Cambiar foto"
+                >
+                  <Camera className="w-4 h-4" aria-hidden="true" />
+                </button>
                 <Link
                   to={`/clientes/${cliente.id}`}
                   className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
@@ -258,6 +267,16 @@ const Clientes = () => {
           </div>
         )}
       </div>
+
+      <SelectorFoto
+        open={!!clienteFoto}
+        onClose={() => setClienteFoto(null)}
+        nombre={clienteFoto?.nombre}
+        fotoUrl={clienteFoto?.fotoUrl}
+        endpoint={clienteFoto ? `/api/clientes/${clienteFoto.id}/foto` : ''}
+        compartida={Boolean(clienteFoto?.cuentaVinculada)}
+        onActualizada={fetchClientes}
+      />
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
+import { limpiarCacheAvatares } from '../lib/avatarCache';
 
 const AuthContext = createContext(null);
 
@@ -37,13 +38,14 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     const response = await api.post('/api/auth/login', { username, password });
-    const { token: newToken, username: userUsername, nombre, rol } = response.data;
+    const { token: newToken, username: userUsername, nombre, rol, fotoUrl } = response.data;
+    const nuevoUsuario = { username: userUsername, nombre, rol, fotoUrl: fotoUrl || '' };
     
     localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify({ username: userUsername, nombre, rol }));
+    localStorage.setItem('user', JSON.stringify(nuevoUsuario));
     
     setToken(newToken);
-    setUser({ username: userUsername, nombre, rol });
+    setUser(nuevoUsuario);
     api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
     
     return response.data;
@@ -52,9 +54,19 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    limpiarCacheAvatares();
     setToken(null);
     setUser(null);
     delete api.defaults.headers.common['Authorization'];
+  };
+
+  const actualizarFoto = (fotoUrl) => {
+    setUser((actual) => {
+      if (!actual) return actual;
+      const actualizado = { ...actual, fotoUrl: fotoUrl || '' };
+      localStorage.setItem('user', JSON.stringify(actualizado));
+      return actualizado;
+    });
   };
 
   const isAdmin = () => user?.rol === 'ADMIN';
@@ -69,6 +81,7 @@ export const AuthProvider = ({ children }) => {
       loading, 
       login, 
       logout, 
+      actualizarFoto,
       isAdmin, 
       isEmpleado,
       isCliente,

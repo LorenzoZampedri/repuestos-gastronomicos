@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, Phone, ShoppingCart, X, Trash2, MessageCircle, Plus, Minus, LogOut, User, ClipboardList } from 'lucide-react';
+import { Package, Phone, ShoppingCart, X, Trash2, MessageCircle, Plus, Minus, LogOut, ClipboardList } from 'lucide-react';
 import { gsap, prefersReducedMotion } from '../lib/animations';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,8 @@ import { useCurrency, PCT_DESCUENTO, UMBRAL_DESCUENTO } from '../context/Currenc
 import { formatMoney, normalizePhone } from '../utils/format';
 import PageTransition from './PageTransition';
 import PedidoModal from './PedidoModal';
+import Avatar from './Avatar';
+import SelectorFoto from './SelectorFoto';
 
 const CartDrawer = ({ isOpen, onClose, onHacerPedido }) => {
   const {
@@ -233,9 +235,10 @@ const CartDrawer = ({ isOpen, onClose, onHacerPedido }) => {
 const PublicLayout = ({ children }) => {
   const [cartOpen, setCartOpen] = useState(false);
   const [pedidoOpen, setPedidoOpen] = useState(false);
+  const [fotoOpen, setFotoOpen] = useState(false);
   const { itemCount } = useCart();
   const { getWhatsAppUrl, whatsappNumber } = useCurrency();
-  const { user, logout, homePorRol } = useAuth();
+  const { user, logout, homePorRol, isCliente, actualizarFoto } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -294,11 +297,19 @@ const PublicLayout = ({ children }) => {
               </button>
               {user ? (
                 <>
+                  <button
+                    type="button"
+                    onClick={() => setFotoOpen(true)}
+                    className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    title="Cambiar foto de perfil"
+                    aria-label="Cambiar foto de perfil"
+                  >
+                    <Avatar fotoUrl={user.fotoUrl} nombre={user.nombre} size="sm" />
+                  </button>
                   <Link
                     to={homePorRol()}
                     className="hidden sm:flex items-center gap-2 text-sm text-gray-600 hover:text-primary-800"
                   >
-                    <User className="w-4 h-4" aria-hidden="true" />
                     {user.nombre}
                   </Link>
                   <button
@@ -358,6 +369,16 @@ const PublicLayout = ({ children }) => {
         onHacerPedido={abrirPedido}
       />
       <PedidoModal open={pedidoOpen} onClose={() => setPedidoOpen(false)} />
+
+      <SelectorFoto
+        open={fotoOpen}
+        onClose={() => setFotoOpen(false)}
+        nombre={user?.nombre}
+        fotoUrl={user?.fotoUrl}
+        endpoint="/api/auth/foto"
+        compartida={isCliente()}
+        onActualizada={actualizarFoto}
+      />
     </div>
   );
 };

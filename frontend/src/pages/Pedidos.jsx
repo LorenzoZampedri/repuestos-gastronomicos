@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
+import Avatar from '../components/Avatar';
 import { formatMoney, whatsappUrl } from '../utils/format';
 
 const ESTADOS = {
@@ -127,8 +128,12 @@ const DetallePedidoModal = ({ pedido, open, onClose, onResuelto }) => {
           </button>
         </div>
 
-        <div className="bg-gray-50 rounded-lg p-4 space-y-1 text-sm">
-          <p className="font-medium text-gray-900">{cliente?.nombre || 'Cliente'}</p>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <Avatar fotoUrl={cliente?.fotoUrl} nombre={cliente?.nombre} size="md" tipo="cliente" />
+            <p className="font-medium text-gray-900">{cliente?.nombre || 'Cliente'}</p>
+          </div>
+          <div className="space-y-1 text-sm">
           <p className="flex items-center gap-2 text-gray-600">
             <Phone className="w-4 h-4 text-gray-400" aria-hidden="true" />
             {cliente?.telefono ? (
@@ -178,6 +183,7 @@ const DetallePedidoModal = ({ pedido, open, onClose, onResuelto }) => {
             ) : (
               <span className="text-gray-600">Sin método (pedido anterior)</span>
             )}
+          </div>
           </div>
         </div>
 
@@ -405,10 +411,20 @@ const Pedidos = () => {
                       {formatearFecha(pedido.fecha)}
                     </td>
                     <td className="px-4 py-3 text-gray-900">
-                      {pedido.cliente?.nombre}
-                      <span className="block text-xs text-gray-500">
-                        {pedido.cliente?.telefono || 'Sin teléfono'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <Avatar
+                          fotoUrl={pedido.cliente?.fotoUrl}
+                          nombre={pedido.cliente?.nombre}
+                          size="sm"
+                          tipo="cliente"
+                        />
+                        <div>
+                          {pedido.cliente?.nombre}
+                          <span className="block text-xs text-gray-500">
+                            {pedido.cliente?.telefono || 'Sin teléfono'}
+                          </span>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right text-gray-600">
                       {pedido.detalles?.length || 0}
