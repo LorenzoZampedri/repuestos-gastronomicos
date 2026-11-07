@@ -31,6 +31,8 @@ pgdata/
 # Uploads
 uploads/
 backend/uploads/
+avatares/
+backend/avatares/
 
 # Logs
 *.log

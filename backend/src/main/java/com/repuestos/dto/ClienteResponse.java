@@ -18,10 +18,12 @@ public record ClienteResponse(
         BigDecimal saldoCorriente,
         String observaciones,
         Boolean activo,
+        String fotoUrl,
+        Boolean cuentaVinculada,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 
-    public static ClienteResponse desde(Cliente cliente, boolean incluirCuentaCorriente) {
+    public static ClienteResponse desde(Cliente cliente, boolean incluirCuentaCorriente, boolean cuentaVinculada) {
         if (cliente == null) {
             return null;
         }
@@ -36,7 +38,13 @@ public record ClienteResponse(
                 incluirCuentaCorriente ? cliente.getSaldoCorriente() : null,
                 cliente.getObservaciones(),
                 cliente.getActivo(),
+                cliente.getFotoUrl(),
+                cuentaVinculada,
                 cliente.getCreatedAt(),
                 cliente.getUpdatedAt());
+    }
+
+    public static ClienteResponse desde(Cliente cliente, boolean incluirCuentaCorriente) {
+        return desde(cliente, incluirCuentaCorriente, false);
     }
 }

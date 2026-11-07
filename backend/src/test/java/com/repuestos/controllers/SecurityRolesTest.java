@@ -12,13 +12,16 @@ import com.repuestos.models.Producto;
 import com.repuestos.models.Usuario;
 import com.repuestos.models.Venta;
 import com.repuestos.repositories.CategoriaRepository;
+import com.repuestos.repositories.UsuarioRepository;
 import com.repuestos.security.JwtAuthFilter;
 import com.repuestos.security.JwtUtil;
 import com.repuestos.security.SecurityConfig;
 import com.repuestos.services.AuditoriaService;
+import com.repuestos.services.AvatarStorageService;
 import com.repuestos.services.ClienteService;
 import com.repuestos.services.ConfiguracionService;
 import com.repuestos.services.DashboardService;
+import com.repuestos.services.FotoPerfilService;
 import com.repuestos.services.ImagenStorageService;
 import com.repuestos.services.LogsService;
 import com.repuestos.services.PedidoService;
@@ -27,17 +30,21 @@ import com.repuestos.services.ProductoService;
 import com.repuestos.services.UsuarioService;
 import com.repuestos.services.VentaService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -47,10 +54,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -59,6 +68,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = {
         AuthController.class,
+        AvatarController.class,
         CategoriaController.class,
         ClienteController.class,
         ConfiguracionController.class,
@@ -77,16 +87,19 @@ class SecurityRolesTest {
 
     @MockBean private AuthenticationManager authenticationManager;
     @MockBean private AuditoriaService auditoriaService;
+    @MockBean private AvatarStorageService avatarStorageService;
     @MockBean private JwtUtil jwtUtil;
     @MockBean private CategoriaRepository categoriaRepository;
     @MockBean private ClienteService clienteService;
     @MockBean private ConfiguracionService configuracionService;
     @MockBean private DashboardService dashboardService;
+    @MockBean private FotoPerfilService fotoPerfilService;
     @MockBean private ImagenStorageService imagenStorageService;
     @MockBean private LogsService logsService;
     @MockBean private PedidoService pedidoService;
     @MockBean private PreciosMasivosService preciosMasivosService;
     @MockBean private ProductoService productoService;
+    @MockBean private UsuarioRepository usuarioRepository;
     @MockBean private UsuarioService usuarioService;
     @MockBean private VentaService ventaService;
 
@@ -562,6 +575,195 @@ class SecurityRolesTest {
                 .andExpect(status().isOk());
 
         verify(usuarioService).cambiarPasswordActual("clave-vieja", "clave-nueva");
+    }
+
+    // ------------------------------------------------------------------
+    // Fotos de perfil y avatares
+    // ------------------------------------------------------------------
+
+    private static final String ARCHIVO_AVATAR = "11111111-1111-1111-1111-111111111111.jpg";
+
+    @TempDir
+    Path tempDir;
+
+    private MockMultipartFile foto() {
+        return new MockMultipartFile("file", "foto.jpg", "image/jpeg",
+                new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF});
+    }
+
+    @Test
+    void sinTokenNoSePuedeAccederAFotos() throws Exception {
+        mockMvc.perform(put("/api/auth/foto").contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/auth/foto")).andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/api/usuarios/1/foto").contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/usuarios/1/foto")).andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/api/clientes/1/foto").contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/clientes/1/foto")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/avatares/" + ARCHIVO_AVATAR)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "empleado", roles = "EMPLEADO")
+    void usuarioAutenticadoPuedeCambiarSuPropiaFoto() throws Exception {
+        Usuario empleado = Usuario.builder().id(2L).username("empleado")
+                .nombre("Empleado").rol(Usuario.Rol.EMPLEADO).build();
+        when(usuarioService.usuarioActual()).thenReturn(empleado);
+        when(fotoPerfilService.cambiarFotoUsuario(eq(2L), any())).thenReturn(empleado);
+
+        mockMvc.perform(multipart("/api/auth/foto").file(foto()).with(request -> {
+                    request.setMethod("PUT");
+                    return request;
+                }))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/auth/foto")).andExpect(status().isOk());
+
+        verify(fotoPerfilService).cambiarFotoUsuario(eq(2L), any());
+        verify(fotoPerfilService).quitarFotoUsuario(2L);
+    }
+
+    @Test
+    @WithMockUser(username = "empleado", roles = "EMPLEADO")
+    void empleadoPuedeCambiarFotoDeClientePeroNoEliminarClientes() throws Exception {
+        when(fotoPerfilService.quitarFotoCliente(1L)).thenReturn(
+                Cliente.builder().id(1L).nombre("Cliente").build());
+
+        mockMvc.perform(delete("/api/clientes/1/foto")).andExpect(status().isOk());
+        mockMvc.perform(delete("/api/clientes/1")).andExpect(status().isForbidden());
+
+        verify(fotoPerfilService).quitarFotoCliente(1L);
+        verify(clienteService, never()).eliminar(any());
+    }
+
+    @Test
+    @WithMockUser(username = "cliente", roles = "CLIENTE")
+    void clienteNoPuedeCambiarFotosDeClientesNiDeOtrosUsuarios() throws Exception {
+        mockMvc.perform(delete("/api/clientes/1/foto")).andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/usuarios/1/foto")).andExpect(status().isForbidden());
+        mockMvc.perform(put("/api/clientes/1/foto").contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put("/api/usuarios/1/foto").contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isForbidden());
+
+        verify(fotoPerfilService, never()).quitarFotoCliente(any());
+        verify(fotoPerfilService, never()).quitarFotoUsuario(any());
+    }
+
+    @Test
+    @WithMockUser(username = "empleado", roles = "EMPLEADO")
+    void empleadoNoPuedeCambiarFotoDeOtroUsuario() throws Exception {
+        mockMvc.perform(delete("/api/usuarios/1/foto")).andExpect(status().isForbidden());
+        verify(fotoPerfilService, never()).quitarFotoUsuario(any());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void adminPuedeCambiarFotoDeCualquierUsuario() throws Exception {
+        when(fotoPerfilService.quitarFotoUsuario(1L)).thenReturn(
+                Usuario.builder().id(1L).username("objetivo").nombre("Objetivo")
+                        .rol(Usuario.Rol.EMPLEADO).build());
+
+        mockMvc.perform(delete("/api/usuarios/1/foto"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1));
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void adminPuedeVerCualquierAvatar() throws Exception {
+        prepararAvatar();
+        when(usuarioRepository.findByUsernameIgnoreCase("admin")).thenReturn(java.util.Optional.of(
+                Usuario.builder().id(1L).username("admin").nombre("Admin")
+                        .rol(Usuario.Rol.ADMIN).build()));
+
+        mockMvc.perform(get("/api/avatares/" + ARCHIVO_AVATAR))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "empleado", roles = "EMPLEADO")
+    void empleadoPuedeVerCualquierAvatar() throws Exception {
+        prepararAvatar();
+        when(usuarioRepository.findByUsernameIgnoreCase("empleado")).thenReturn(java.util.Optional.of(
+                Usuario.builder().id(2L).username("empleado").nombre("Empleado")
+                        .rol(Usuario.Rol.EMPLEADO).build()));
+
+        mockMvc.perform(get("/api/avatares/" + ARCHIVO_AVATAR))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "cliente", roles = "CLIENTE")
+    void clienteSoloVeSuPropioAvatar() throws Exception {
+        prepararAvatar();
+        String propio = "/api/avatares/" + ARCHIVO_AVATAR;
+        when(usuarioRepository.findByUsernameIgnoreCase("cliente")).thenReturn(java.util.Optional.of(
+                Usuario.builder().id(3L).username("cliente").nombre("Cliente")
+                        .rol(Usuario.Rol.CLIENTE).fotoUrl(propio).build()));
+
+        mockMvc.perform(get(propio)).andExpect(status().isOk());
+
+        String ajeno = "/api/avatares/22222222-2222-2222-2222-222222222222.jpg";
+        when(avatarStorageService.cargar("22222222-2222-2222-2222-222222222222.jpg"))
+                .thenReturn(tempDir.resolve(ARCHIVO_AVATAR));
+        mockMvc.perform(get(ajeno)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void nombreDeAvatarInvalidoRespondeNotFound() throws Exception {
+        when(usuarioRepository.findByUsernameIgnoreCase("admin")).thenReturn(java.util.Optional.of(
+                Usuario.builder().id(1L).username("admin").nombre("Admin")
+                        .rol(Usuario.Rol.ADMIN).build()));
+
+        mockMvc.perform(get("/api/avatares/no-es-un-uuid.jpg"))
+                .andExpect(status().isNotFound());
+    }
+
+    private void prepararAvatar() throws Exception {
+        Path archivo = tempDir.resolve(ARCHIVO_AVATAR);
+        Files.write(archivo, new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF});
+        when(avatarStorageService.cargar(ARCHIVO_AVATAR)).thenReturn(archivo);
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void respuestaDeUsuariosIncluyeFotoUrl() throws Exception {
+        Usuario usuario = Usuario.builder().id(1L).username("admin").nombre("Admin")
+                .rol(Usuario.Rol.ADMIN).activo(true)
+                .fotoUrl("/api/avatares/" + ARCHIVO_AVATAR).build();
+        when(usuarioService.listar(null, null)).thenReturn(List.of(usuario));
+
+        mockMvc.perform(get("/api/usuarios"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].fotoUrl").value("/api/avatares/" + ARCHIVO_AVATAR));
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void listadoDeClientesIncluyeFotoYCuentaVinculadaSinConsultasPorCliente() throws Exception {
+        when(usuarioService.esAdminActual()).thenReturn(true);
+        when(clienteService.listarTodos()).thenReturn(List.of(
+                Cliente.builder().id(1L).nombre("Con Cuenta")
+                        .fotoUrl("/api/avatares/" + ARCHIVO_AVATAR).build(),
+                Cliente.builder().id(2L).nombre("Sin Cuenta").build()));
+        when(usuarioRepository.findClienteIdsConCuenta()).thenReturn(List.of(1L));
+
+        mockMvc.perform(get("/api/clientes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].fotoUrl").value("/api/avatares/" + ARCHIVO_AVATAR))
+                .andExpect(jsonPath("$[0].cuentaVinculada").value(true))
+                .andExpect(jsonPath("$[1].cuentaVinculada").value(false));
+
+        verify(usuarioRepository, times(1)).findClienteIdsConCuenta();
+    }
+
+    @Test
+    void lasFotosDePersonasNoSeSirvenDesdeUploads() throws Exception {
+        mockMvc.perform(get("/api/uploads/avatares/" + ARCHIVO_AVATAR))
+                .andExpect(status().isNotFound());
     }
 
     // ------------------------------------------------------------------

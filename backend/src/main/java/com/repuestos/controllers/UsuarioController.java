@@ -1,18 +1,15 @@
 package com.repuestos.controllers;
 
-import com.repuestos.dto.ActivoRequest;
-import com.repuestos.dto.ResetPasswordRequest;
-import com.repuestos.dto.UsuarioActualizarRequest;
-import com.repuestos.dto.UsuarioCrearRequest;
-import com.repuestos.dto.UsuarioResponse;
-import com.repuestos.dto.VincularClienteRequest;
+import com.repuestos.dto.*;
 import com.repuestos.models.Usuario;
+import com.repuestos.services.FotoPerfilService;
 import com.repuestos.services.UsuarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -23,6 +20,7 @@ import java.util.List;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+    private final FotoPerfilService fotoPerfilService;
 
     @GetMapping
     public ResponseEntity<List<UsuarioResponse>> listar(
@@ -69,6 +67,20 @@ public class UsuarioController {
             @Valid @RequestBody ActivoRequest request) {
         Usuario actualizado = usuarioService.cambiarActivo(
                 id, request.activo(), usuarioService.usernameActual());
+        return ResponseEntity.ok(UsuarioResponse.desde(actualizado));
+    }
+
+    @PutMapping("/{id}/foto")
+    public ResponseEntity<UsuarioResponse> cambiarFoto(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        Usuario actualizado = fotoPerfilService.cambiarFotoUsuario(id, file);
+        return ResponseEntity.ok(UsuarioResponse.desde(actualizado));
+    }
+
+    @DeleteMapping("/{id}/foto")
+    public ResponseEntity<UsuarioResponse> quitarFoto(@PathVariable Long id) {
+        Usuario actualizado = fotoPerfilService.quitarFotoUsuario(id);
         return ResponseEntity.ok(UsuarioResponse.desde(actualizado));
     }
 }

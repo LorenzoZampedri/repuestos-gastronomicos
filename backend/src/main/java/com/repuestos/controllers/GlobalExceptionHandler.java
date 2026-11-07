@@ -1,5 +1,6 @@
 package com.repuestos.controllers;
 
+import com.repuestos.services.ImagenInvalidaException;
 import com.repuestos.services.NegocioException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -27,6 +28,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NegocioException.class)
     public ResponseEntity<Map<String, String>> negocio(NegocioException ex) {
         return ResponseEntity.status(ex.getStatus())
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ImagenInvalidaException.class)
+    public ResponseEntity<Map<String, String>> imagenInvalida(ImagenInvalidaException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("message", ex.getMessage()));
     }
 

@@ -17,6 +17,8 @@ public enum AccionAuditoria {
     USUARIO_ACTIVADO("USUARIOS", "Usuario activado"),
     USUARIO_DESACTIVADO("USUARIOS", "Usuario desactivado"),
     USUARIO_CLIENTE_VINCULADO("USUARIOS", "Cliente vinculado a usuario"),
+    USUARIO_FOTO_CAMBIADA("USUARIOS", "Foto de usuario cambiada"),
+    USUARIO_FOTO_ELIMINADA("USUARIOS", "Foto de usuario eliminada"),
 
     PRODUCTO_CREADO("PRODUCTOS", "Producto creado"),
     PRODUCTO_EDITADO("PRODUCTOS", "Producto editado"),
@@ -32,6 +34,8 @@ public enum AccionAuditoria {
     CLIENTE_EDITADO("CLIENTES", "Cliente editado"),
     CLIENTE_ELIMINADO("CLIENTES", "Cliente eliminado"),
     CLIENTE_SALDO_AJUSTADO("CLIENTES", "Saldo de cliente ajustado"),
+    CLIENTE_FOTO_CAMBIADA("CLIENTES", "Foto de cliente cambiada"),
+    CLIENTE_FOTO_ELIMINADA("CLIENTES", "Foto de cliente eliminada"),
 
     VENTA_CREADA("VENTAS", "Venta creada"),
     VENTA_ANULADA("VENTAS", "Venta anulada"),

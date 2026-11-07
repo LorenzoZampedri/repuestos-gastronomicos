@@ -48,6 +48,9 @@ public class SecurityConfig {
 
                 // Autenticado (cualquier rol)
                 .requestMatchers(HttpMethod.PUT, "/api/auth/password").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/auth/foto").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/auth/foto").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/avatares/**").authenticated()
 
                 // Solo CLIENTE: crear pedidos y consultar/cancelar los propios
                 .requestMatchers(HttpMethod.POST, "/api/pedidos").hasRole("CLIENTE")
@@ -61,6 +64,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/precios/**").hasRole("ADMIN")
                 .requestMatchers("/api/logs/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/productos/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/clientes/*/foto").hasAnyRole("ADMIN", "EMPLEADO")
+                .requestMatchers(HttpMethod.DELETE, "/api/clientes/*/foto").hasAnyRole("ADMIN", "EMPLEADO")
                 .requestMatchers(HttpMethod.DELETE, "/api/clientes/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/clientes/deudores").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/clientes/*/pagos").hasRole("ADMIN")

@@ -26,7 +26,7 @@ COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
 
 # Uploads directory
-RUN mkdir -p /app/uploads
+RUN mkdir -p /app/uploads /app/avatares
 
 # Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]
