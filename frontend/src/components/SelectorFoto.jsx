@@ -118,7 +118,7 @@ const SelectorFoto = ({ open, onClose, nombre, fotoUrl, endpoint, compartida = f
         {compartida && (
           <p className="mt-4 flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
             <Info className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
-            Esta foto se comparte con la ficha de cliente vinculada.
+            Si la cuenta está vinculada a una ficha de cliente, esta foto se comparte con ella.
           </p>
         )}
 
