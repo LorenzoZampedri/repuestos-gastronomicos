@@ -132,7 +132,9 @@ def importar_productos(conn, excel_path):
             col_lower = col.lower().strip()
             if 'codigo' in col_lower or 'cod' in col_lower or 'barra' in col_lower:
                 column_map['codigo'] = col
-            elif 'nombre' in col_lower or 'producto' in col_lower or 'desc' in col_lower:
+            elif 'descripcion' in col_lower or 'detalle' in col_lower or 'obs' in col_lower:
+                column_map['descripcion'] = col
+            elif 'nombre' in col_lower or 'producto' in col_lower:
                 column_map['nombre'] = col
             elif 'precio' in col_lower or 'pre' in col_lower:
                 column_map['precio'] = col
@@ -140,8 +142,6 @@ def importar_productos(conn, excel_path):
                 column_map['stock'] = col
             elif 'categoria' in col_lower or 'rubro' in col_lower or 'grupo' in col_lower:
                 column_map['categoria'] = col
-            elif 'detalle' in col_lower or 'obs' in col_lower:
-                column_map['descripcion'] = col
         
         print(f"\n🔍 Mapeo de columnas detectado:")
         for key, value in column_map.items():
