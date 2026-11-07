@@ -26,6 +26,7 @@ import Configuracion from './pages/Configuracion';
 import Usuarios from './pages/Usuarios';
 import MisPedidos from './pages/MisPedidos';
 import Pedidos from './pages/Pedidos';
+import Logs from './pages/Logs';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -170,6 +171,11 @@ function App() {
             <Route path="configuracion" element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
                 <Configuracion />
+              </ProtectedRoute>
+            } />
+            <Route path="logs" element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <Logs />
               </ProtectedRoute>
             } />
           </Route>

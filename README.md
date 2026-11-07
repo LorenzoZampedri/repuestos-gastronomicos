@@ -13,6 +13,7 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 - **Cuentas corrientes** - Gestión de deudas y pagos
 - **Catálogo público** - Web para clientes
 - **Pedidos online** - Carrito, seguimiento y conversión a venta
+- **Auditoría** - Registro inmutable de acciones y accesos, consultable solo por ADMIN
 - **Multi-rol** - Admin, Empleado y Cliente
 - **Responsive** - Funciona en celular y PC
 
@@ -20,8 +21,8 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 
 | Rol | Alcance |
 |-----|---------|
-| **ADMIN** | Acceso completo: dashboard, productos, ventas, clientes, cuentas corrientes, usuarios y configuración. |
-| **EMPLEADO** | Productos (crear/editar), ventas con efectivo/tarjeta/transferencia/otro y clientes (crear/editar). No puede vender a cuenta corriente (solo ADMIN), eliminar productos/clientes, anular ventas, ver cuentas corrientes ni administrar usuarios. |
+| **ADMIN** | Acceso completo: dashboard, productos, ventas, clientes, cuentas corrientes, usuarios, configuración y logs de auditoría. |
+| **EMPLEADO** | Productos (crear/editar), ventas con efectivo/tarjeta/transferencia/otro y clientes (crear/editar). No puede vender a cuenta corriente (solo ADMIN), eliminar productos/clientes, anular ventas, ver cuentas corrientes, administrar usuarios ni consultar logs. |
 | **CLIENTE** | Catálogo público, carrito, pedidos online y consulta por WhatsApp. Puede registrarse desde `/registro` y hace seguimiento en `/mis-pedidos`. |
 
 Los usuarios inactivos no pueden iniciar sesión. Un administrador no puede
@@ -211,11 +212,35 @@ Endpoints principales:
 - `GET /api/configuracion/publica` - configuración pública, incluye `datosTransferencia: {cvu, alias, titular}`.
 - `PUT /api/configuracion/transferencia` - `{cvu, alias, titular}` (solo ADMIN) transaccional, con validaciones e historial.
 
+## 🧾 Logs de auditoría
+
+Todas las acciones relevantes quedan registradas en una tabla inmutable
+(`logs_actividad`, sin endpoints de edición ni borrado): quién, cuándo, qué
+acción, sobre qué entidad, el resultado y desde qué IP/navegador. Se registran
+altas y cambios de usuarios, productos, clientes, ventas, pagos, pedidos,
+configuración, inicios de sesión fallidos y accesos denegados.
+
+Los registros se consultan en **Logs** (solo `ADMIN`) con filtros combinables por
+fecha, usuario, rol, módulo, acción, resultado y texto libre. La tabla se pagina
+en el servidor y se puede exportar a CSV (máximo 5000 filas por exportación).
+
+Endpoints principales (todos solo `ADMIN`):
+
+- `GET /api/logs` - listado paginado con filtros (`desde`, `hasta`, `usuario`, `rol`, `modulo`, `accion`, `resultado`, `q`, `page`, `size`).
+- `GET /api/logs/{id}` - detalle con el JSON de cambios.
+- `GET /api/logs/export` - CSV con los mismos filtros; responde `X-Logs-Filas` y `X-Logs-Truncados`.
+- `GET /api/logs/filtros` - módulos, acciones y roles para poblar los selects.
+
+Los eventos se guardan en la zona horaria del backend (`TZ=America/Argentina/Buenos_Aires`
+en Docker). El logging nunca interrumpe la operación: si falla, el negocio continúa.
+Ver [Resumen de logs](RESUMEN_LOGS.md) para el detalle de implementación.
+
 ## 📚 Documentación
 
 - [Guía Docker](README_DOCKER.md) - Instrucciones para levantar el proyecto
 - [Resumen de pedidos online](RESUMEN_PEDIDOS.md) - Implementación y verificación
 - [Resumen de roles](RESUMEN_ROLES.md) - Detalle de implementación y verificación
+- [Resumen de logs](RESUMEN_LOGS.md) - Auditoría, filtros, exportación y verificación
 - [API Docs](http://localhost:8080/swagger-ui.html) - Documentación Swagger
 
 ## 👥 Equipo

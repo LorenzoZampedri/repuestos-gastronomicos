@@ -1,5 +1,6 @@
 package com.repuestos.services;
 
+import com.repuestos.models.AccionAuditoria;
 import com.repuestos.models.Cliente;
 import com.repuestos.models.Pago;
 import com.repuestos.models.Usuario;
@@ -14,7 +15,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +32,7 @@ public class ClienteService {
     private final UsuarioRepository usuarioRepository;
     private final VentaRepository ventaRepository;
     private final VentaService ventaService;
+    private final AuditoriaService auditoriaService;
 
     @Transactional
     public Cliente asegurarClienteParaUsuario(Usuario usuario) {
@@ -125,12 +132,26 @@ public class ClienteService {
         return clienteRepository.findClientesConDeuda();
     }
     
+    @Transactional
     public Cliente guardar(Cliente cliente) {
-        return clienteRepository.save(cliente);
+        Cliente guardado = clienteRepository.save(cliente);
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("clienteId", guardado.getId());
+        detalle.put("nombre", guardado.getNombre());
+        detalle.put("telefono", guardado.getTelefono());
+        detalle.put("email", guardado.getEmail());
+        detalle.put("saldoCorriente", guardado.getSaldoCorriente());
+        auditoriaService.registrar(AccionAuditoria.CLIENTE_CREADO, "Cliente",
+                guardado.getId(),
+                "Creó el cliente '" + guardado.getNombre() + "'",
+                detalle);
+        return guardado;
     }
     
+    @Transactional
     public Cliente actualizar(Long id, Cliente clienteActualizado) {
         Cliente cliente = buscarPorId(id);
+        Map<String, Object> antes = datosEditablesCliente(cliente);
         cliente.setNombre(clienteActualizado.getNombre());
         cliente.setTelefono(clienteActualizado.getTelefono());
         cliente.setEmail(clienteActualizado.getEmail());
@@ -138,13 +159,40 @@ public class ClienteService {
         cliente.setCuit(clienteActualizado.getCuit());
         cliente.setCondicionIva(clienteActualizado.getCondicionIva());
         cliente.setObservaciones(clienteActualizado.getObservaciones());
-        return clienteRepository.save(cliente);
+        Cliente guardado = clienteRepository.save(cliente);
+
+        Map<String, Object> despues = datosEditablesCliente(guardado);
+        Map<String, Object> cambios = auditoriaService.calcularDiff(antes, despues);
+        if (!cambios.isEmpty()) {
+            Map<String, Object> detalle = new LinkedHashMap<>();
+            detalle.put("clienteId", guardado.getId());
+            detalle.put("nombre", guardado.getNombre());
+            detalle.put("cambios", cambios);
+            auditoriaService.registrar(AccionAuditoria.CLIENTE_EDITADO, "Cliente",
+                    guardado.getId(),
+                    "Editó el cliente '" + guardado.getNombre() + "'",
+                    detalle);
+        }
+        return guardado;
     }
     
+    @Transactional
     public void eliminar(Long id) {
         Cliente cliente = buscarPorId(id);
+        boolean estabaActivo = Boolean.TRUE.equals(cliente.getActivo());
         cliente.setActivo(false);
         clienteRepository.save(cliente);
+
+        if (estabaActivo) {
+            Map<String, Object> detalle = new LinkedHashMap<>();
+            detalle.put("clienteId", cliente.getId());
+            detalle.put("nombre", cliente.getNombre());
+            detalle.put("saldoCorriente", cliente.getSaldoCorriente());
+            auditoriaService.registrar(AccionAuditoria.CLIENTE_ELIMINADO, "Cliente",
+                    cliente.getId(),
+                    "Dio de baja el cliente '" + cliente.getNombre() + "'",
+                    detalle);
+        }
     }
     
     @Transactional
@@ -164,21 +212,60 @@ public class ClienteService {
                 ? BigDecimal.ZERO
                 : cliente.getSaldoCorriente();
 
+        Cliente resultado;
         if ("sumar".equals(tipo)) {
             cliente.setSaldoCorriente(saldoActual.add(monto));
-            return clienteRepository.save(cliente);
+            resultado = clienteRepository.save(cliente);
         } else if ("restar".equals(tipo)) {
             // El pago se aplica a las ventas abiertas del cliente (más antiguas primero)
             // y descuenta el saldoCorriente exactamente una vez.
             ventaService.registrarPagoCuentaCorriente(id, monto, metodoPago, usuario);
-            return buscarPorId(id);
+            resultado = buscarPorId(id);
         } else {
             throw new IllegalArgumentException("Tipo de ajuste inválido");
         }
+
+        BigDecimal saldoDespues = resultado.getSaldoCorriente() == null
+                ? BigDecimal.ZERO
+                : resultado.getSaldoCorriente();
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("clienteId", resultado.getId());
+        detalle.put("clienteNombre", resultado.getNombre());
+        detalle.put("tipo", tipo);
+        detalle.put("monto", monto);
+        detalle.put("metodoPago", metodoPago);
+        detalle.put("saldoAntes", saldoActual);
+        detalle.put("saldoDespues", saldoDespues);
+        String resumen = "sumar".equals(tipo)
+                ? "Aumentó el saldo del cliente '" + resultado.getNombre() + "' en $"
+                        + formatearMonto(monto)
+                : "Registró un pago de $" + formatearMonto(monto)
+                        + " a la cuenta del cliente '" + resultado.getNombre() + "'";
+        auditoriaService.registrar(AccionAuditoria.CLIENTE_SALDO_AJUSTADO, "Cliente",
+                resultado.getId(), resumen, detalle);
+        return resultado;
     }
 
     public List<Pago> pagosPorCliente(Long id) {
         buscarPorId(id);
         return pagoRepository.findPagosPorCliente(id);
+    }
+
+    private Map<String, Object> datosEditablesCliente(Cliente cliente) {
+        Map<String, Object> datos = new LinkedHashMap<>();
+        datos.put("nombre", cliente.getNombre());
+        datos.put("telefono", cliente.getTelefono());
+        datos.put("email", cliente.getEmail());
+        datos.put("direccion", cliente.getDireccion());
+        datos.put("cuit", cliente.getCuit());
+        datos.put("condicionIva", cliente.getCondicionIva());
+        datos.put("observaciones", cliente.getObservaciones());
+        return datos;
+    }
+
+    private String formatearMonto(BigDecimal monto) {
+        DecimalFormat formato = new DecimalFormat("#,##0.00",
+                DecimalFormatSymbols.getInstance(Locale.forLanguageTag("es-AR")));
+        return formato.format(monto);
     }
 }

@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @DataJpaTest
-@Import({ProductoService.class, ConfiguracionService.class})
+@Import({ProductoService.class, ConfiguracionService.class, AuditoriaService.class})
 class ProductoCodigoBarrasTest {
 
     @Autowired private ProductoService productoService;

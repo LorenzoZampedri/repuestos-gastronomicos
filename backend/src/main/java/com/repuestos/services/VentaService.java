@@ -9,11 +9,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -21,12 +28,14 @@ public class VentaService {
 
     public static final int UMBRAL_DESCUENTO_CANTIDAD = 10;
     public static final BigDecimal PCT_DESCUENTO = new BigDecimal("0.85");
+    private static final Pattern ORIGEN_PEDIDO = Pattern.compile("^Pedido #(\\d+)");
 
     private final VentaRepository ventaRepository;
     private final DetalleVentaRepository detalleVentaRepository;
     private final PagoRepository pagoRepository;
     private final ProductoService productoService;
     private final ClienteRepository clienteRepository;
+    private final AuditoriaService auditoriaService;
     
     public List<Venta> listarVentas(LocalDateTime inicio, LocalDateTime fin) {
         return ventaRepository.findByFechaBetweenAndEstadoNot(inicio, fin, Venta.EstadoVenta.ANULADA);
@@ -59,6 +68,12 @@ public class VentaService {
 
     @Transactional
     public Venta crearVenta(Venta venta, List<DetalleVenta> detalles, Long clienteId) {
+        Venta ventaGuardada = crearVentaBase(venta, detalles, clienteId);
+        auditarVentaCreada(ventaGuardada, null, null, detalles.size());
+        return ventaGuardada;
+    }
+
+    private Venta crearVentaBase(Venta venta, List<DetalleVenta> detalles, Long clienteId) {
         // Validar stock y aplicar descuento por volumen (15% si cantidad > 10)
         for (DetalleVenta detalle : detalles) {
             Producto producto = productoService.buscarPorId(detalle.getProducto().getId());
@@ -122,7 +137,8 @@ public class VentaService {
             throw new NegocioException(HttpStatus.BAD_REQUEST,
                     "Para vender a cuenta corriente tenés que seleccionar un cliente registrado");
         }
-        Venta ventaGuardada = crearVenta(venta, detalles, clienteId);
+        Venta ventaGuardada = crearVentaBase(venta, detalles, clienteId);
+        BigDecimal pagoInicial = null;
         if (metodoPago != null
                 && !metodoPago.isBlank()
                 && !"CUENTA_CORRIENTE".equalsIgnoreCase(metodoPago)) {
@@ -133,13 +149,42 @@ public class VentaService {
                     .referencia("Pago de venta")
                     .usuario(ventaGuardada.getUsuario())
                     .build();
-            registrarPago(ventaGuardada.getId(), pago);
+            Pago pagoGuardado = registrarPagoInterno(ventaGuardada.getId(), pago);
+            pagoInicial = pagoGuardado.getMonto();
         }
+        auditarVentaCreada(ventaGuardada, metodoPago, pagoInicial, detalles.size());
         return buscarPorId(ventaGuardada.getId());
     }
 
     @Transactional
     public Pago registrarPago(Long ventaId, Pago pago) {
+        Pago pagoGuardado = registrarPagoInterno(ventaId, pago);
+        Venta venta = pagoGuardado.getVenta();
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("ventaId", venta.getId());
+        detalle.put("pagoId", pagoGuardado.getId());
+        detalle.put("monto", pagoGuardado.getMonto());
+        detalle.put("metodoPago", pagoGuardado.getMetodoPago() == null
+                ? null : pagoGuardado.getMetodoPago().name());
+        detalle.put("cliente", venta.getCliente() == null
+                ? null : venta.getCliente().getNombre());
+        String resumenPago = "Registró un pago de $"
+                + formatearMonto(pagoGuardado.getMonto())
+                + " a la venta #" + venta.getId()
+                + (pagoGuardado.getMetodoPago() == null
+                ? "" : " (" + pagoGuardado.getMetodoPago().name() + ")");
+        if (pagoGuardado.getUsuario() != null) {
+            auditoriaService.registrarComo(AccionAuditoria.PAGO_REGISTRADO,
+                    pagoGuardado.getUsuario(), "Venta", venta.getId(), resumenPago, detalle);
+        } else {
+            auditoriaService.registrar(AccionAuditoria.PAGO_REGISTRADO, "Venta",
+                    venta.getId(), resumenPago, detalle);
+        }
+        return pagoGuardado;
+    }
+
+    private Pago registrarPagoInterno(Long ventaId, Pago pago) {
         Venta venta = buscarPorId(ventaId);
         // Normalizar el monto a escala 2 ANTES de cualquier cálculo
         if (pago.getMonto() != null) {
@@ -244,6 +289,25 @@ public class VentaService {
 
         cliente.setSaldoCorriente(saldoActual.subtract(montoPago));
         clienteRepository.save(cliente);
+
+        BigDecimal saldoDespues = cliente.getSaldoCorriente();
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("clienteId", cliente.getId());
+        detalle.put("clienteNombre", cliente.getNombre());
+        detalle.put("monto", montoPago);
+        detalle.put("metodoPago", metodo.name());
+        detalle.put("saldoAntes", saldoActual);
+        detalle.put("saldoDespues", saldoDespues);
+        String resumen = "Registró un pago de $" + formatearMonto(montoPago)
+                + " a la cuenta corriente de '" + cliente.getNombre()
+                + "' (" + metodo.name() + ")";
+        if (usuario != null) {
+            auditoriaService.registrarComo(AccionAuditoria.PAGO_CUENTA_CORRIENTE,
+                    usuario, "Cliente", cliente.getId(), resumen, detalle);
+        } else {
+            auditoriaService.registrar(AccionAuditoria.PAGO_CUENTA_CORRIENTE,
+                    "Cliente", cliente.getId(), resumen, detalle);
+        }
     }
 
     /**
@@ -416,7 +480,20 @@ public class VentaService {
         }
         
         venta.setEstado(Venta.EstadoVenta.ANULADA);
-        ventaRepository.save(venta);
+        Venta ventaAnulada = ventaRepository.save(venta);
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("ventaId", ventaAnulada.getId());
+        detalle.put("total", ventaAnulada.getTotal());
+        detalle.put("cliente", ventaAnulada.getCliente() == null
+                ? "anónimo" : ventaAnulada.getCliente().getNombre());
+        detalle.put("cantidadItems", ventaAnulada.getDetalles() == null
+                ? 0 : ventaAnulada.getDetalles().size());
+        auditoriaService.registrar(AccionAuditoria.VENTA_ANULADA, "Venta",
+                ventaAnulada.getId(),
+                "Anuló la venta #" + ventaAnulada.getId()
+                        + " por $" + formatearMonto(ventaAnulada.getTotal()),
+                detalle);
     }
     
     public BigDecimal ventasDelDia() {
@@ -439,5 +516,62 @@ public class VentaService {
     
     public BigDecimal totalVentas() {
         return ventaRepository.sumTotalVentas();
+    }
+
+    private void auditarVentaCreada(Venta venta, String metodoPago,
+                                    BigDecimal pagoInicial, int cantidadItems) {
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("ventaId", venta.getId());
+        detalle.put("total", venta.getTotal());
+        detalle.put("metodoPago", metodoPago);
+        detalle.put("clienteId", venta.getCliente() == null
+                ? null : venta.getCliente().getId());
+        detalle.put("cliente", venta.getCliente() == null
+                ? "anónimo" : venta.getCliente().getNombre());
+        detalle.put("cantidadItems", cantidadItems);
+        if (pagoInicial != null) {
+            Map<String, Object> pago = new LinkedHashMap<>();
+            pago.put("monto", pagoInicial);
+            pago.put("metodoPago", metodoPago);
+            detalle.put("pagoInicial", pago);
+        }
+
+        String origen = null;
+        if (venta.getObservaciones() != null) {
+            Matcher matcher = ORIGEN_PEDIDO.matcher(venta.getObservaciones().trim());
+            if (matcher.find()) {
+                origen = "pedido #" + matcher.group(1);
+                detalle.put("origen", origen);
+            }
+        }
+
+        StringBuilder resumen = new StringBuilder("Creó la venta #")
+                .append(venta.getId())
+                .append(" por $").append(formatearMonto(venta.getTotal()));
+        if (metodoPago != null && !metodoPago.isBlank()) {
+            resumen.append(" (").append(metodoPago).append(")");
+        }
+        resumen.append(venta.getCliente() == null
+                ? " - anónimo" : " - " + venta.getCliente().getNombre());
+        resumen.append(" - ").append(cantidadItems).append(" ítems");
+        if (origen != null) {
+            resumen.append(" - origen: ").append(origen);
+        }
+        if (venta.getUsuario() != null) {
+            auditoriaService.registrarComo(AccionAuditoria.VENTA_CREADA,
+                    venta.getUsuario(), "Venta", venta.getId(), resumen.toString(), detalle);
+        } else {
+            auditoriaService.registrar(AccionAuditoria.VENTA_CREADA, "Venta",
+                    venta.getId(), resumen.toString(), detalle);
+        }
+    }
+
+    private String formatearMonto(BigDecimal monto) {
+        if (monto == null) {
+            return "0,00";
+        }
+        DecimalFormat formato = new DecimalFormat("#,##0.00",
+                DecimalFormatSymbols.getInstance(Locale.forLanguageTag("es-AR")));
+        return formato.format(monto);
     }
 }

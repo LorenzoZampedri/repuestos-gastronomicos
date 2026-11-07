@@ -4,6 +4,7 @@ import com.repuestos.dto.PedidoContactoResponse;
 import com.repuestos.dto.PedidoCrearRequest;
 import com.repuestos.dto.PedidoRechazarRequest;
 import com.repuestos.dto.PedidoResponse;
+import com.repuestos.models.AccionAuditoria;
 import com.repuestos.models.Cliente;
 import com.repuestos.models.DetallePedido;
 import com.repuestos.models.DetalleVenta;
@@ -20,9 +21,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -41,6 +45,7 @@ public class PedidoService {
     private final ProductoRepository productoRepository;
     private final ClienteService clienteService;
     private final VentaService ventaService;
+    private final AuditoriaService auditoriaService;
 
     @Transactional
     public PedidoResponse crear(Usuario usuario, PedidoCrearRequest request) {
@@ -113,8 +118,22 @@ public class PedidoService {
             clienteRepository.save(cliente);
         }
 
-        return PedidoResponse.desde(
-                pedidoRepository.save(pedido), false, false, false);
+        Pedido guardado = pedidoRepository.save(pedido);
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("pedidoId", guardado.getId());
+        detalle.put("totalEstimado", guardado.getTotalEstimado());
+        detalle.put("metodoPago", guardado.getMetodoPago());
+        detalle.put("cantidadItems", guardado.getDetalles() == null
+                ? 0 : guardado.getDetalles().size());
+        detalle.put("clienteId", cliente.getId());
+        detalle.put("cliente", cliente.getNombre());
+        auditoriaService.registrarComo(AccionAuditoria.PEDIDO_CREADO, usuario, "Pedido",
+                guardado.getId(),
+                "Creó el pedido #" + guardado.getId() + " por $"
+                        + formatearMonto(guardado.getTotalEstimado())
+                        + " (" + guardado.getMetodoPago() + ")",
+                detalle);
+        return PedidoResponse.desde(guardado, false, false, false);
     }
 
     @Transactional
@@ -219,8 +238,24 @@ public class PedidoService {
         pedido.setVenta(ventaGuardada);
         pedido.setResueltoPor(actor);
         pedido.setFechaResolucion(LocalDateTime.now());
-        return PedidoResponse.desde(
-                pedidoRepository.save(pedido), true, esAdmin, true);
+        Pedido guardado = pedidoRepository.save(pedido);
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("pedidoId", guardado.getId());
+        detalle.put("ventaId", ventaGuardada.getId());
+        detalle.put("total", ventaGuardada.getTotal());
+        detalle.put("metodoPago", metodoPago);
+        detalle.put("clienteId", guardado.getCliente() == null
+                ? null : guardado.getCliente().getId());
+        detalle.put("cliente", guardado.getCliente() == null
+                ? null : guardado.getCliente().getNombre());
+        auditoriaService.registrarComo(AccionAuditoria.PEDIDO_APROBADO, actor, "Pedido",
+                guardado.getId(),
+                "Aprobó el pedido #" + guardado.getId()
+                        + " y generó la venta #" + ventaGuardada.getId()
+                        + " por $" + formatearMonto(ventaGuardada.getTotal()),
+                detalle);
+        return PedidoResponse.desde(guardado, true, esAdmin, true);
     }
 
     @Transactional
@@ -233,8 +268,22 @@ public class PedidoService {
         pedido.setMotivoRechazo(request.motivo().trim());
         pedido.setResueltoPor(actor);
         pedido.setFechaResolucion(LocalDateTime.now());
-        return PedidoResponse.desde(
-                pedidoRepository.save(pedido), true, esAdmin, true);
+        Pedido guardado = pedidoRepository.save(pedido);
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("pedidoId", guardado.getId());
+        detalle.put("motivo", guardado.getMotivoRechazo());
+        detalle.put("totalEstimado", guardado.getTotalEstimado());
+        detalle.put("clienteId", guardado.getCliente() == null
+                ? null : guardado.getCliente().getId());
+        detalle.put("cliente", guardado.getCliente() == null
+                ? null : guardado.getCliente().getNombre());
+        auditoriaService.registrarComo(AccionAuditoria.PEDIDO_RECHAZADO, actor, "Pedido",
+                guardado.getId(),
+                "Rechazó el pedido #" + guardado.getId()
+                        + " por: " + guardado.getMotivoRechazo(),
+                detalle);
+        return PedidoResponse.desde(guardado, true, esAdmin, true);
     }
 
     @Transactional
@@ -250,8 +299,19 @@ public class PedidoService {
         pedido.setEstado(Pedido.EstadoPedido.CANCELADO);
         pedido.setResueltoPor(usuario);
         pedido.setFechaResolucion(LocalDateTime.now());
-        return PedidoResponse.desde(
-                pedidoRepository.save(pedido), false, false, false);
+        Pedido guardado = pedidoRepository.save(pedido);
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("pedidoId", guardado.getId());
+        detalle.put("totalEstimado", guardado.getTotalEstimado());
+        detalle.put("metodoPago", guardado.getMetodoPago());
+        detalle.put("clienteId", guardado.getCliente() == null
+                ? null : guardado.getCliente().getId());
+        auditoriaService.registrarComo(AccionAuditoria.PEDIDO_CANCELADO, usuario, "Pedido",
+                guardado.getId(),
+                "Canceló el pedido #" + guardado.getId(),
+                detalle);
+        return PedidoResponse.desde(guardado, false, false, false);
     }
 
     private Pedido bloqueado(Long id) {
@@ -278,5 +338,14 @@ public class PedidoService {
                     "Método de pago no disponible para compras online");
         }
         return metodo;
+    }
+
+    private String formatearMonto(BigDecimal monto) {
+        if (monto == null) {
+            return "0,00";
+        }
+        DecimalFormat formato = new DecimalFormat("#,##0.00",
+                DecimalFormatSymbols.getInstance(Locale.forLanguageTag("es-AR")));
+        return formato.format(monto);
     }
 }

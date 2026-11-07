@@ -25,7 +25,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @DataJpaTest
-@Import({VentaService.class, ClienteService.class, ProductoService.class, ConfiguracionService.class})
+@Import({VentaService.class, ClienteService.class, ProductoService.class, ConfiguracionService.class, AuditoriaService.class})
 class PagoCuentaCorrienteTest {
 
     @Autowired private VentaService ventaService;
