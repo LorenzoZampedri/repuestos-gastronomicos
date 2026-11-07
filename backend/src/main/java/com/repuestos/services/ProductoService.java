@@ -1,5 +1,6 @@
 package com.repuestos.services;
 
+import com.repuestos.models.AccionAuditoria;
 import com.repuestos.models.Producto;
 import com.repuestos.repositories.ProductoRepository;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +20,7 @@ public class ProductoService {
     
     private final ProductoRepository productoRepository;
     private final ConfiguracionService configuracionService;
+    private final AuditoriaService auditoriaService;
     
     public List<Producto> listarTodos() {
         return productoRepository.findByActivoTrue();
@@ -44,16 +48,26 @@ public class ProductoService {
         return productoRepository.findProductosStockBajo();
     }
     
+    @Transactional
     public Producto guardar(Producto producto) {
         String codigo = normalizarCodigoBarras(producto.getCodigoBarras());
         validarCodigoBarras(codigo, null);
         producto.setCodigoBarras(codigo);
         sincronizarPrecioArs(producto);
-        return productoRepository.save(producto);
+        Producto guardado = productoRepository.save(producto);
+
+        Map<String, Object> detalle = datosEditablesProducto(guardado);
+        auditoriaService.registrar(AccionAuditoria.PRODUCTO_CREADO, "Producto",
+                guardado.getId(),
+                "Creó el producto '" + guardado.getNombre() + "'",
+                detalle);
+        return guardado;
     }
     
+    @Transactional
     public Producto actualizar(Long id, Producto productoActualizado) {
         Producto producto = buscarPorId(id);
+        Map<String, Object> antes = datosEditablesProducto(producto);
         String codigo = normalizarCodigoBarras(productoActualizado.getCodigoBarras());
         validarCodigoBarras(codigo, id);
         producto.setNombre(productoActualizado.getNombre());
@@ -65,7 +79,36 @@ public class ProductoService {
         producto.setImagenUrl(productoActualizado.getImagenUrl());
         producto.setCategoria(productoActualizado.getCategoria());
         sincronizarPrecioArs(producto);
-        return productoRepository.save(producto);
+        Producto guardado = productoRepository.save(producto);
+
+        Map<String, Object> despues = datosEditablesProducto(guardado);
+        Map<String, Object> cambios = auditoriaService.calcularDiff(antes, despues);
+        if (!cambios.isEmpty()) {
+            Map<String, Object> detalle = new LinkedHashMap<>();
+            detalle.put("productoId", guardado.getId());
+            detalle.put("nombre", guardado.getNombre());
+            detalle.put("cambios", cambios);
+            auditoriaService.registrar(AccionAuditoria.PRODUCTO_EDITADO, "Producto",
+                    guardado.getId(),
+                    "Editó el producto '" + guardado.getNombre() + "'",
+                    detalle);
+        }
+
+        Integer stockAntes = valorEntero(antes.get("stockActual"));
+        Integer stockDespues = valorEntero(despues.get("stockActual"));
+        if (stockAntes != null && stockDespues != null && !stockAntes.equals(stockDespues)) {
+            Map<String, Object> detalleStock = new LinkedHashMap<>();
+            detalleStock.put("productoId", guardado.getId());
+            detalleStock.put("nombre", guardado.getNombre());
+            detalleStock.put("stockAntes", stockAntes);
+            detalleStock.put("stockDespues", stockDespues);
+            auditoriaService.registrar(AccionAuditoria.STOCK_AJUSTADO, "Producto",
+                    guardado.getId(),
+                    "Ajustó el stock de '" + guardado.getNombre() + "': "
+                            + stockAntes + " → " + stockDespues,
+                    detalleStock);
+        }
+        return guardado;
     }
 
     private void sincronizarPrecioArs(Producto producto) {
@@ -122,13 +165,48 @@ public class ProductoService {
         productoRepository.save(producto);
     }
     
+    @Transactional
     public void eliminar(Long id) {
         Producto producto = buscarPorId(id);
+        boolean estabaActivo = Boolean.TRUE.equals(producto.getActivo());
         producto.setActivo(false);
         productoRepository.save(producto);
+
+        if (estabaActivo) {
+            Map<String, Object> detalle = new LinkedHashMap<>();
+            detalle.put("productoId", producto.getId());
+            detalle.put("nombre", producto.getNombre());
+            detalle.put("codigoBarras", producto.getCodigoBarras());
+            detalle.put("precio", producto.getPrecio());
+            detalle.put("stockActual", producto.getStockActual());
+            auditoriaService.registrar(AccionAuditoria.PRODUCTO_ELIMINADO, "Producto",
+                    producto.getId(),
+                    "Dio de baja el producto '" + producto.getNombre() + "'",
+                    detalle);
+        }
     }
     
     public Long contarProductosActivos() {
         return productoRepository.countProductosActivos();
+    }
+
+    private Map<String, Object> datosEditablesProducto(Producto producto) {
+        Map<String, Object> datos = new LinkedHashMap<>();
+        datos.put("nombre", producto.getNombre());
+        datos.put("descripcion", producto.getDescripcion());
+        datos.put("codigoBarras", producto.getCodigoBarras());
+        datos.put("categoria", producto.getCategoria() == null
+                ? null : producto.getCategoria().getNombre());
+        datos.put("precio", producto.getPrecio());
+        datos.put("precioUsd", producto.getPrecioUsd());
+        datos.put("stockActual", producto.getStockActual());
+        datos.put("stockMinimo", producto.getStockMinimo());
+        datos.put("imagenUrl", producto.getImagenUrl());
+        datos.put("activo", producto.getActivo());
+        return datos;
+    }
+
+    private Integer valorEntero(Object valor) {
+        return valor instanceof Number numero ? numero.intValue() : null;
     }
 }

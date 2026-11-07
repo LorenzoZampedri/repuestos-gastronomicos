@@ -34,6 +34,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       APP_UPLOAD_DIR: /app/uploads
+      TZ: America/Argentina/Buenos_Aires
     volumes:
       - uploads:/app/uploads
     depends_on:

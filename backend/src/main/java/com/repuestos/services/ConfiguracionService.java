@@ -2,6 +2,7 @@ package com.repuestos.services;
 
 import com.repuestos.dto.DatosTransferenciaRequest;
 import com.repuestos.dto.DatosTransferenciaResponse;
+import com.repuestos.models.AccionAuditoria;
 import com.repuestos.models.Configuracion;
 import com.repuestos.models.ConfiguracionHistorial;
 import com.repuestos.models.Producto;
@@ -17,7 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @Slf4j
@@ -41,6 +46,7 @@ public class ConfiguracionService {
     private final ConfiguracionRepository configuracionRepository;
     private final ConfiguracionHistorialRepository configuracionHistorialRepository;
     private final ProductoRepository productoRepository;
+    private final AuditoriaService auditoriaService;
 
     public List<Configuracion> listarTodas() {
         return configuracionRepository.findAll();
@@ -66,6 +72,7 @@ public class ConfiguracionService {
         }
     }
 
+    @Transactional
     public Configuracion guardarOActualizar(String clave, String valor, String descripcion) {
         Configuracion configuracion = configuracionRepository.findByClave(clave)
                 .orElseGet(() -> Configuracion.builder().clave(clave).build());
@@ -77,6 +84,17 @@ public class ConfiguracionService {
         Configuracion guardada = configuracionRepository.save(configuracion);
         if (valorAnterior != null && !valorAnterior.equals(valor)) {
             registrarHistorial(clave, valorAnterior, valor);
+        }
+        if (!esClaveTransferencia(clave) && !Objects.equals(valorAnterior, valor)) {
+            Map<String, Object> detalle = new LinkedHashMap<>();
+            detalle.put("clave", clave);
+            detalle.put("valorAntes", valorAnterior);
+            detalle.put("valorDespues", valor);
+            auditoriaService.registrar(AccionAuditoria.CONFIG_EDITADA,
+                    "Configuracion", null,
+                    "Editó la configuración '" + clave + "': "
+                            + mostrarValor(valorAnterior) + " → " + mostrarValor(valor),
+                    detalle);
         }
         return guardada;
     }
@@ -125,13 +143,38 @@ public class ConfiguracionService {
                     "El titular de la cuenta no puede superar los 100 caracteres");
         }
 
+        Map<String, Object> antes = new LinkedHashMap<>();
+        antes.put("cvu", valorOpcional(CLAVE_TRANSFERENCIA_CVU));
+        antes.put("alias", valorOpcional(CLAVE_TRANSFERENCIA_ALIAS));
+        antes.put("titular", valorOpcional(CLAVE_TRANSFERENCIA_TITULAR));
+
         guardarOActualizar(CLAVE_TRANSFERENCIA_CVU, cvu,
                 "CVU o CBU de la cuenta para transferencias");
         guardarOActualizar(CLAVE_TRANSFERENCIA_ALIAS, alias,
                 "Alias de la cuenta para transferencias");
         guardarOActualizar(CLAVE_TRANSFERENCIA_TITULAR, titular,
                 "Titular de la cuenta para transferencias");
-        return obtenerDatosTransferencia();
+
+        DatosTransferenciaResponse respuesta = obtenerDatosTransferencia();
+        Map<String, Object> despues = new LinkedHashMap<>();
+        despues.put("cvu", respuesta.cvu());
+        despues.put("alias", respuesta.alias());
+        despues.put("titular", respuesta.titular());
+
+        Map<String, Object> cambios = auditoriaService.calcularDiff(antes, despues);
+        if (!cambios.isEmpty()) {
+            Map<String, Object> detalle = new LinkedHashMap<>();
+            detalle.put("antes", antes);
+            detalle.put("despues", despues);
+            detalle.put("campos", cambios);
+            auditoriaService.registrar(AccionAuditoria.CONFIG_TRANSFERENCIA_EDITADA,
+                    "Configuracion", null,
+                    "Editó los datos de transferencia ("
+                            + String.join(", ", etiquetasCamposTransferencia(cambios.keySet()))
+                            + ")",
+                    detalle);
+        }
+        return respuesta;
     }
 
     private String valorOpcional(String clave) {
@@ -198,5 +241,22 @@ public class ConfiguracionService {
         if (migrados > 0) {
             log.info("Migración USD: {} productos recibieron precioUsd (cotización {})", migrados, cotizacion);
         }
+    }
+
+    private String mostrarValor(String valor) {
+        return valor == null || valor.isBlank() ? "sin valor" : "'" + valor + "'";
+    }
+
+    private List<String> etiquetasCamposTransferencia(Set<String> claves) {
+        List<String> etiquetas = new ArrayList<>();
+        for (String clave : claves) {
+            switch (clave) {
+                case "cvu" -> etiquetas.add("CVU");
+                case "alias" -> etiquetas.add("alias");
+                case "titular" -> etiquetas.add("titular");
+                default -> etiquetas.add(clave);
+            }
+        }
+        return etiquetas;
     }
 }

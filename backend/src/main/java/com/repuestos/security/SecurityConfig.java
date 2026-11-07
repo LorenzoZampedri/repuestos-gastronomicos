@@ -1,5 +1,6 @@
 package com.repuestos.security;
 
+import com.repuestos.services.AuditoriaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,6 +27,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final AuditoriaService auditoriaService;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -56,6 +58,7 @@ public class SecurityConfig {
 
                 // Solo ADMIN: rutas sensibles
                 .requestMatchers("/api/usuarios/**", "/api/dashboard/**").hasRole("ADMIN")
+                .requestMatchers("/api/logs/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/productos/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/clientes/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/clientes/deudores").hasRole("ADMIN")
@@ -84,6 +87,8 @@ public class SecurityConfig {
                     response.getWriter().write("{\"message\":\"No autenticado o sesión expirada\"}");
                 })
                 .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    auditoriaService.registrarAccesoDenegado(
+                            request.getMethod(), request.getRequestURI());
                     response.setStatus(403);
                     response.setContentType("application/json;charset=UTF-8");
                     response.getWriter().write("{\"message\":\"No tenés permisos para realizar esta acción\"}");

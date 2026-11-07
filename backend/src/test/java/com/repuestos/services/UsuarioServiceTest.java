@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
-@Import({UsuarioService.class, ClienteService.class, VentaService.class, ProductoService.class, ConfiguracionService.class, PasswordEncoderConfig.class})
+@Import({UsuarioService.class, ClienteService.class, VentaService.class, ProductoService.class, ConfiguracionService.class, AuditoriaService.class, PasswordEncoderConfig.class})
 class UsuarioServiceTest {
 
     @Autowired private UsuarioService usuarioService;

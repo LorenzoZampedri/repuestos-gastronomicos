@@ -1,7 +1,9 @@
 package com.repuestos.controllers;
 
 import com.repuestos.dto.CatalogoProductoResponse;
+import com.repuestos.models.AccionAuditoria;
 import com.repuestos.models.Producto;
+import com.repuestos.services.AuditoriaService;
 import com.repuestos.services.ImagenInvalidaException;
 import com.repuestos.services.ImagenStorageService;
 import com.repuestos.services.ProductoService;
@@ -22,6 +24,7 @@ public class ProductoController {
     
     private final ProductoService productoService;
     private final ImagenStorageService imagenStorageService;
+    private final AuditoriaService auditoriaService;
     
     @GetMapping
     public ResponseEntity<List<Producto>> listarTodos() {
@@ -69,6 +72,10 @@ public class ProductoController {
     public ResponseEntity<Map<String, String>> subirImagen(@RequestParam("file") MultipartFile file) {
         try {
             String url = imagenStorageService.guardar(file);
+            auditoriaService.registrar(AccionAuditoria.PRODUCTO_IMAGEN_SUBIDA, "Producto",
+                    null,
+                    "Subió una imagen de producto",
+                    Map.of("url", url, "archivo", file.getOriginalFilename()));
             return ResponseEntity.ok(Map.of("url", url));
         } catch (ImagenInvalidaException ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)

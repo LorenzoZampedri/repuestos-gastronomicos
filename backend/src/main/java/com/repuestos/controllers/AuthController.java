@@ -3,8 +3,10 @@ package com.repuestos.controllers;
 import com.repuestos.dto.CambioPasswordRequest;
 import com.repuestos.dto.LoginRequest;
 import com.repuestos.dto.RegisterRequest;
+import com.repuestos.models.AccionAuditoria;
 import com.repuestos.models.Usuario;
 import com.repuestos.security.JwtUtil;
+import com.repuestos.services.AuditoriaService;
 import com.repuestos.services.NegocioException;
 import com.repuestos.services.UsuarioService;
 import jakarta.validation.Valid;
@@ -18,6 +20,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
@@ -28,6 +31,7 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final UsuarioService usuarioService;
     private final JwtUtil jwtUtil;
+    private final AuditoriaService auditoriaService;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
@@ -35,15 +39,24 @@ public class AuthController {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password()));
         } catch (DisabledException ex) {
+            auditoriaService.registrarLoginFallido(request.username(), "usuario inactivo");
             throw new NegocioException(HttpStatus.FORBIDDEN,
                     "Tu usuario está desactivado. Contactá al administrador.");
         } catch (AuthenticationException ex) {
+            auditoriaService.registrarLoginFallido(request.username(), "credenciales inválidas");
             throw new NegocioException(HttpStatus.UNAUTHORIZED, "Usuario o contraseña incorrectos");
         }
 
         final UserDetails userDetails = usuarioService.loadUserByUsername(request.username());
         Usuario usuario = usuarioService.buscarPorUsername(request.username());
         final String token = jwtUtil.generateToken(userDetails, usuario.getRol().name());
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("username", usuario.getUsername());
+        detalle.put("rol", usuario.getRol().name());
+        auditoriaService.registrarComo(AccionAuditoria.LOGIN_OK, usuario, "Usuario",
+                usuario.getId(),
+                "Inició sesión (" + usuario.getRol().name() + ")", detalle);
 
         return ResponseEntity.ok(Map.of(
                 "token", token,

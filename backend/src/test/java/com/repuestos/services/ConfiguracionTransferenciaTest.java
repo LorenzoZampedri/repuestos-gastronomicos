@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @DataJpaTest
-@Import(ConfiguracionService.class)
+@Import({ConfiguracionService.class, AuditoriaService.class})
 class ConfiguracionTransferenciaTest {
 
     @Autowired private ConfiguracionService configuracionService;

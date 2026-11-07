@@ -1,6 +1,8 @@
 package com.repuestos.controllers;
 
 import com.repuestos.dto.DatosTransferenciaResponse;
+import com.repuestos.dto.PaginaLogsResponse;
+import com.repuestos.models.AccionAuditoria;
 import com.repuestos.models.Cliente;
 import com.repuestos.models.Pago;
 import com.repuestos.models.Producto;
@@ -10,10 +12,12 @@ import com.repuestos.repositories.CategoriaRepository;
 import com.repuestos.security.JwtAuthFilter;
 import com.repuestos.security.JwtUtil;
 import com.repuestos.security.SecurityConfig;
+import com.repuestos.services.AuditoriaService;
 import com.repuestos.services.ClienteService;
 import com.repuestos.services.ConfiguracionService;
 import com.repuestos.services.DashboardService;
 import com.repuestos.services.ImagenStorageService;
+import com.repuestos.services.LogsService;
 import com.repuestos.services.PedidoService;
 import com.repuestos.services.ProductoService;
 import com.repuestos.services.UsuarioService;
@@ -35,7 +39,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,6 +60,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         ConfiguracionController.class,
         PedidoController.class,
         DashboardController.class,
+        LogsController.class,
         ProductoController.class,
         UsuarioController.class,
         VentaController.class
@@ -64,12 +71,14 @@ class SecurityRolesTest {
     @Autowired private MockMvc mockMvc;
 
     @MockBean private AuthenticationManager authenticationManager;
+    @MockBean private AuditoriaService auditoriaService;
     @MockBean private JwtUtil jwtUtil;
     @MockBean private CategoriaRepository categoriaRepository;
     @MockBean private ClienteService clienteService;
     @MockBean private ConfiguracionService configuracionService;
     @MockBean private DashboardService dashboardService;
     @MockBean private ImagenStorageService imagenStorageService;
+    @MockBean private LogsService logsService;
     @MockBean private PedidoService pedidoService;
     @MockBean private ProductoService productoService;
     @MockBean private UsuarioService usuarioService;
@@ -190,6 +199,21 @@ class SecurityRolesTest {
         mockMvc.perform(get("/api/configuracion")).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/usuarios")).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/dashboard")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/logs")).andExpect(status().isForbidden());
+
+        verify(auditoriaService, atLeastOnce())
+                .registrarAccesoDenegado(anyString(), anyString());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void adminAccedeALogsYEmpleadoNo() throws Exception {
+        when(logsService.buscar(any())).thenReturn(
+                new PaginaLogsResponse(List.of(), 0, 0, 0, 20));
+
+        mockMvc.perform(get("/api/logs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
     }
 
     @Test
@@ -499,6 +523,28 @@ class SecurityRolesTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value(
                         "Tu usuario está desactivado. Contactá al administrador."));
+
+        verify(auditoriaService).registrarLoginFallido("inactivo", "usuario inactivo");
+    }
+
+    @Test
+    void loginCorrectoGeneraLogDeInicioDeSesion() throws Exception {
+        Usuario admin = Usuario.builder().id(1L).username("admin")
+                .nombre("Admin").rol(Usuario.Rol.ADMIN).build();
+        when(usuarioService.loadUserByUsername("admin")).thenReturn(
+                new org.springframework.security.core.userdetails.User(
+                        "admin", "hash", List.of()));
+        when(usuarioService.buscarPorUsername("admin")).thenReturn(admin);
+        when(jwtUtil.generateToken(any(), eq("ADMIN"))).thenReturn("token-jwt");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"admin\",\"password\":\"clave-segura\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("token-jwt"));
+
+        verify(auditoriaService).registrarComo(eq(AccionAuditoria.LOGIN_OK),
+                eq(admin), eq("Usuario"), eq(1L), anyString(), any(Map.class));
     }
 
     @Test
