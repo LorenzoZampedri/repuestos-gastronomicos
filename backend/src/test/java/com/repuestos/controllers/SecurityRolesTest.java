@@ -2,6 +2,9 @@ package com.repuestos.controllers;
 
 import com.repuestos.dto.DatosTransferenciaResponse;
 import com.repuestos.dto.PaginaLogsResponse;
+import com.repuestos.dto.PaginaLotesResponse;
+import com.repuestos.dto.PreciosEstadoResponse;
+import com.repuestos.dto.PreciosVistaPreviaResponse;
 import com.repuestos.models.AccionAuditoria;
 import com.repuestos.models.Cliente;
 import com.repuestos.models.Pago;
@@ -19,6 +22,7 @@ import com.repuestos.services.DashboardService;
 import com.repuestos.services.ImagenStorageService;
 import com.repuestos.services.LogsService;
 import com.repuestos.services.PedidoService;
+import com.repuestos.services.PreciosMasivosService;
 import com.repuestos.services.ProductoService;
 import com.repuestos.services.UsuarioService;
 import com.repuestos.services.VentaService;
@@ -61,6 +65,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         PedidoController.class,
         DashboardController.class,
         LogsController.class,
+        PreciosController.class,
         ProductoController.class,
         UsuarioController.class,
         VentaController.class
@@ -80,6 +85,7 @@ class SecurityRolesTest {
     @MockBean private ImagenStorageService imagenStorageService;
     @MockBean private LogsService logsService;
     @MockBean private PedidoService pedidoService;
+    @MockBean private PreciosMasivosService preciosMasivosService;
     @MockBean private ProductoService productoService;
     @MockBean private UsuarioService usuarioService;
     @MockBean private VentaService ventaService;
@@ -556,6 +562,102 @@ class SecurityRolesTest {
                 .andExpect(status().isOk());
 
         verify(usuarioService).cambiarPasswordActual("clave-vieja", "clave-nueva");
+    }
+
+    // ------------------------------------------------------------------
+    // Precios masivos (solo ADMIN)
+    // ------------------------------------------------------------------
+
+    @Test
+    void sinTokenNoSePuedenUsarPrecios() throws Exception {
+        mockMvc.perform(get("/api/precios/estado")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/precios/lotes")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/precios/lotes/1")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/precios/vista-previa")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tipo\":\"PORCENTAJE\",\"valor\":10,"
+                                + "\"alcance\":{\"tipo\":\"TODOS\"}}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/precios/aplicar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tipo\":\"PORCENTAJE\",\"valor\":10,"
+                                + "\"alcance\":{\"tipo\":\"TODOS\"},\"token\":\"abc\"}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/precios/lotes/1/revertir"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/precios/recalcular-ars"))
+                .andExpect(status().isUnauthorized());
+
+        verify(preciosMasivosService, never()).estado();
+        verify(preciosMasivosService, never()).vistaPrevia(any());
+        verify(preciosMasivosService, never()).aplicar(any());
+    }
+
+    @Test
+    @WithMockUser(username = "empleado", roles = "EMPLEADO")
+    void empleadoNoAccedeAPrecios() throws Exception {
+        mockMvc.perform(get("/api/precios/estado")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/precios/lotes")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/precios/vista-previa")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tipo\":\"PORCENTAJE\",\"valor\":10,"
+                                + "\"alcance\":{\"tipo\":\"TODOS\"}}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/precios/aplicar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tipo\":\"PORCENTAJE\",\"valor\":10,"
+                                + "\"alcance\":{\"tipo\":\"TODOS\"},\"token\":\"abc\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/precios/lotes/1/revertir"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/precios/recalcular-ars"))
+                .andExpect(status().isForbidden());
+
+        verify(preciosMasivosService, never()).estado();
+        verify(preciosMasivosService, never()).aplicar(any());
+        verify(auditoriaService, atLeastOnce())
+                .registrarAccesoDenegado(anyString(), anyString());
+    }
+
+    @Test
+    @WithMockUser(username = "cliente", roles = "CLIENTE")
+    void clienteNoAccedeAPrecios() throws Exception {
+        mockMvc.perform(get("/api/precios/estado")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/precios/lotes")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/precios/recalcular-ars"))
+                .andExpect(status().isForbidden());
+
+        verify(preciosMasivosService, never()).estado();
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void adminAccedeALaVistaPreviaEstadoYHistorialDePrecios() throws Exception {
+        when(preciosMasivosService.estado()).thenReturn(
+                new PreciosEstadoResponse(new BigDecimal("1000"), 2, 1));
+        when(preciosMasivosService.listarLotes(0, 20)).thenReturn(
+                new PaginaLotesResponse(List.of(), 0, 0, 0, 20));
+        when(preciosMasivosService.vistaPrevia(any())).thenReturn(
+                new PreciosVistaPreviaResponse("token-abc", new BigDecimal("1000"),
+                        null, null, List.of(), List.of(), 0));
+
+        mockMvc.perform(get("/api/precios/estado"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cotizacion").value(1000))
+                .andExpect(jsonPath("$.productosDesactualizados").value(2))
+                .andExpect(jsonPath("$.productosSinPrecioUsd").value(1));
+
+        mockMvc.perform(get("/api/precios/lotes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+
+        mockMvc.perform(post("/api/precios/vista-previa")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tipo\":\"PORCENTAJE\",\"valor\":10,"
+                                + "\"alcance\":{\"tipo\":\"TODOS\"}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("token-abc"))
+                .andExpect(jsonPath("$.cotizacion").value(1000));
     }
 
     private Venta ventaConCuentaCorriente() {

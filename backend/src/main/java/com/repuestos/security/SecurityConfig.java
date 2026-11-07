@@ -58,6 +58,7 @@ public class SecurityConfig {
 
                 // Solo ADMIN: rutas sensibles
                 .requestMatchers("/api/usuarios/**", "/api/dashboard/**").hasRole("ADMIN")
+                .requestMatchers("/api/precios/**").hasRole("ADMIN")
                 .requestMatchers("/api/logs/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/productos/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/clientes/**").hasRole("ADMIN")

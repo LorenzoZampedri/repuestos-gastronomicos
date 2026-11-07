@@ -59,7 +59,10 @@ public class ConfiguracionService {
     }
 
     public BigDecimal getCotizacionUsdArs() {
-        String valor = obtenerValor(CLAVE_COTIZACION_USD_ARS);
+        return parseCotizacion(obtenerValor(CLAVE_COTIZACION_USD_ARS));
+    }
+
+    private BigDecimal parseCotizacion(String valor) {
         if (valor == null || valor.isBlank()) {
             return null;
         }
@@ -96,7 +99,69 @@ public class ConfiguracionService {
                             + mostrarValor(valorAnterior) + " → " + mostrarValor(valor),
                     detalle);
         }
+        if (CLAVE_COTIZACION_USD_ARS.equals(clave)) {
+            recalcularSiCambioCotizacion(valorAnterior, valor);
+        }
         return guardada;
+    }
+
+    /**
+     * Cuando la cotización USD → ARS cambia de valor (no en el sembrado inicial
+     * ni cuando se guarda el mismo número), recalcula en la MISMA transacción el
+     * precio en pesos de todos los productos activos con precio USD y registra
+     * una sola fila de auditoría. Si el recálculo falla, el cambio de cotización
+     * también se revierte.
+     */
+    private void recalcularSiCambioCotizacion(String valorAnterior, String valorNuevo) {
+        if (valorAnterior == null) {
+            return;
+        }
+        BigDecimal anterior = parseCotizacion(valorAnterior);
+        BigDecimal nueva = parseCotizacion(valorNuevo);
+        if (anterior == null || nueva == null || anterior.compareTo(nueva) == 0) {
+            return;
+        }
+        int cambiados = recalcularPreciosArs(nueva);
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("clave", CLAVE_COTIZACION_USD_ARS);
+        detalle.put("cotizacionAnterior", anterior);
+        detalle.put("cotizacionNueva", nueva);
+        detalle.put("cantidadProductos", cambiados);
+        auditoriaService.registrar(AccionAuditoria.PRECIOS_RECALCULADOS,
+                "Configuracion", null,
+                "Recalculó " + cambiados + " precios en pesos: cotización "
+                        + anterior.toPlainString() + " → " + nueva.toPlainString(),
+                detalle);
+    }
+
+    /**
+     * Sincroniza el precio en pesos de todos los productos activos con precio
+     * USD usando la fórmula compartida. Devuelve cuántos precios cambiaron
+     * (idempotente: una segunda llamada sin cambios devuelve 0).
+     */
+    @Transactional
+    public int recalcularPreciosArs(BigDecimal cotizacion) {
+        if (cotizacion == null) {
+            return 0;
+        }
+        List<Producto> productos = productoRepository.findByActivoTrue();
+        List<Producto> modificados = new ArrayList<>();
+        for (Producto producto : productos) {
+            if (producto.getPrecioUsd() == null
+                    || producto.getPrecioUsd().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            BigDecimal esperado = PreciosArs.desdeUsd(producto.getPrecioUsd(), cotizacion);
+            BigDecimal actual = producto.getPrecio() == null ? BigDecimal.ZERO : producto.getPrecio();
+            if (esperado.compareTo(actual) != 0) {
+                producto.setPrecio(esperado);
+                modificados.add(producto);
+            }
+        }
+        if (!modificados.isEmpty()) {
+            productoRepository.saveAll(modificados);
+        }
+        return modificados.size();
     }
 
     public List<ConfiguracionHistorial> listarHistorial(String clave) {

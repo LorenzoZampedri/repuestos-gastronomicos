@@ -24,6 +24,9 @@ public enum AccionAuditoria {
     PRODUCTO_ELIMINADO("PRODUCTOS", "Producto eliminado"),
     PRODUCTO_IMAGEN_SUBIDA("PRODUCTOS", "Imagen de producto subida"),
     CATEGORIA_CREADA("PRODUCTOS", "Categoría creada"),
+    PRECIOS_ACTUALIZADOS_MASIVO("PRODUCTOS", "Actualización masiva de precios"),
+    PRECIOS_REVERTIDOS("PRODUCTOS", "Actualización de precios revertida"),
+    PRECIOS_RECALCULADOS("PRODUCTOS", "Precios en pesos recalculados"),
 
     CLIENTE_CREADO("CLIENTES", "Cliente creado"),
     CLIENTE_EDITADO("CLIENTES", "Cliente editado"),
