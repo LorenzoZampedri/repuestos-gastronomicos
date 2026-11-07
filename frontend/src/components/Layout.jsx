@@ -17,7 +17,8 @@ import {
   User,
   UserCog,
   KeyRound,
-  ClipboardList
+  ClipboardList,
+  ScrollText
 } from 'lucide-react';
 
 const ROLE_LABELS = {
@@ -69,6 +70,7 @@ const Layout = () => {
     ...(isAdmin() ? [
       { name: 'Ctas. Corrientes', href: '/cuentas-corrientes', icon: CreditCard },
       { name: 'Usuarios', href: '/usuarios', icon: UserCog },
+      { name: 'Logs', href: '/logs', icon: ScrollText },
       { name: 'Configuración', href: '/configuracion', icon: Settings },
     ] : []),
   ];
