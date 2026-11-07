@@ -13,7 +13,9 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 - **Cuentas corrientes** - Gestión de deudas y pagos
 - **Catálogo público** - Web para clientes
 - **Pedidos online** - Carrito, seguimiento y conversión a venta
+- **Precios masivos y cotización** - Actualización en dólares con vista previa, lotes históricos, reversión y sincronización automática de pesos (ARS)
 - **Auditoría** - Registro inmutable de acciones y accesos, consultable solo por ADMIN
+- **Fotos de perfil** - Avatares privados para usuarios y clientes, compartidos automáticamente cuando la cuenta está vinculada a una ficha
 - **Multi-rol** - Admin, Empleado y Cliente
 - **Responsive** - Funciona en celular y PC
 
@@ -21,7 +23,7 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 
 | Rol | Alcance |
 |-----|---------|
-| **ADMIN** | Acceso completo: dashboard, productos, ventas, clientes, cuentas corrientes, usuarios, configuración y logs de auditoría. |
+| **ADMIN** | Acceso completo: dashboard, productos, precios masivos, ventas, clientes, cuentas corrientes, usuarios, configuración y logs de auditoría. |
 | **EMPLEADO** | Productos (crear/editar), ventas con efectivo/tarjeta/transferencia/otro y clientes (crear/editar). No puede vender a cuenta corriente (solo ADMIN), eliminar productos/clientes, anular ventas, ver cuentas corrientes, administrar usuarios ni consultar logs. |
 | **CLIENTE** | Catálogo público, carrito, pedidos online y consulta por WhatsApp. Puede registrarse desde `/registro` y hace seguimiento en `/mis-pedidos`. |
 
@@ -108,6 +110,25 @@ Endpoints principales:
 - `PUT /api/usuarios/{id}/password` - restablecimiento de contraseña (solo ADMIN).
 - `PATCH /api/usuarios/{id}/activo` - activar o desactivar usuario (solo ADMIN).
 - `PUT /api/usuarios/{id}/cliente` - vincular un usuario CLIENTE a una ficha de cliente (solo ADMIN).
+
+### Fotos de perfil
+
+Cada usuario y cada ficha de cliente pueden tener una foto. Se suben como JPG o
+PNG de hasta 5 MB, se recortan al centro y se guardan como JPEG de 512×512 sin
+metadatos. Los archivos se almacenan en el volumen `avatares`, separado de las
+imágenes de productos, y solo se sirven a usuarios autenticados.
+
+Si un usuario CLIENTE está vinculado a una ficha, la foto es compartida: cambiar
+o quitar la foto desde cualquiera de los dos lados actualiza ambos registros. Sin
+vínculo, las fotos son independientes. Al vincular o revincular se reconcilian
+automáticamente.
+
+Endpoints:
+
+- `PUT/DELETE /api/auth/foto` - foto del usuario autenticado.
+- `PUT/DELETE /api/usuarios/{id}/foto` - foto de un usuario (solo ADMIN).
+- `PUT/DELETE /api/clientes/{id}/foto` - foto de un cliente (ADMIN y EMPLEADO).
+- `GET /api/avatares/{archivo}` - entrega la imagen; un CLIENTE solo puede ver la propia.
 
 ## 🛒 Pedidos online
 

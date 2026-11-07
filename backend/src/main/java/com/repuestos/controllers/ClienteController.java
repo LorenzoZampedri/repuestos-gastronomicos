@@ -4,15 +4,20 @@ import com.repuestos.dto.ClienteResponse;
 import com.repuestos.dto.PagoResponse;
 import com.repuestos.models.Cliente;
 import com.repuestos.models.Usuario;
+import com.repuestos.repositories.UsuarioRepository;
 import com.repuestos.services.ClienteService;
+import com.repuestos.services.FotoPerfilService;
 import com.repuestos.services.UsuarioService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/clientes")
@@ -21,46 +26,57 @@ public class ClienteController {
 
     private final ClienteService clienteService;
     private final UsuarioService usuarioService;
+    private final FotoPerfilService fotoPerfilService;
+    private final UsuarioRepository usuarioRepository;
 
     @GetMapping
     public ResponseEntity<List<ClienteResponse>> listarTodos() {
         boolean incluirCuentaCorriente = usuarioService.esAdminActual();
+        Set<Long> idsConCuenta = new HashSet<>(usuarioRepository.findClienteIdsConCuenta());
         return ResponseEntity.ok(clienteService.listarTodos().stream()
-                .map(cliente -> ClienteResponse.desde(cliente, incluirCuentaCorriente))
+                .map(cliente -> ClienteResponse.desde(cliente, incluirCuentaCorriente, idsConCuenta.contains(cliente.getId())))
                 .toList());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ClienteResponse> buscarPorId(@PathVariable Long id) {
+        Cliente cliente = clienteService.buscarPorId(id);
+        boolean cuentaVinculada = usuarioRepository.existsByClienteId(id);
         return ResponseEntity.ok(ClienteResponse.desde(
-                clienteService.buscarPorId(id), usuarioService.esAdminActual()));
+                cliente, usuarioService.esAdminActual(), cuentaVinculada));
     }
 
     @GetMapping("/buscar")
     public ResponseEntity<List<ClienteResponse>> buscar(@RequestParam String q) {
         boolean incluirCuentaCorriente = usuarioService.esAdminActual();
+        Set<Long> idsConCuenta = new HashSet<>(usuarioRepository.findClienteIdsConCuenta());
         return ResponseEntity.ok(clienteService.buscar(q).stream()
-                .map(cliente -> ClienteResponse.desde(cliente, incluirCuentaCorriente))
+                .map(cliente -> ClienteResponse.desde(cliente, incluirCuentaCorriente, idsConCuenta.contains(cliente.getId())))
                 .toList());
     }
 
     @GetMapping("/deudores")
     public ResponseEntity<List<ClienteResponse>> deudores() {
+        Set<Long> idsConCuenta = new HashSet<>(usuarioRepository.findClienteIdsConCuenta());
         return ResponseEntity.ok(clienteService.clientesConDeuda().stream()
-                .map(cliente -> ClienteResponse.desde(cliente, true))
+                .map(cliente -> ClienteResponse.desde(cliente, true, idsConCuenta.contains(cliente.getId())))
                 .toList());
     }
 
     @PostMapping
     public ResponseEntity<ClienteResponse> crear(@RequestBody Cliente cliente) {
+        Cliente guardado = clienteService.guardar(cliente);
+        boolean cuentaVinculada = usuarioRepository.existsByClienteId(guardado.getId());
         return ResponseEntity.ok(ClienteResponse.desde(
-                clienteService.guardar(cliente), usuarioService.esAdminActual()));
+                guardado, usuarioService.esAdminActual(), cuentaVinculada));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ClienteResponse> actualizar(@PathVariable Long id, @RequestBody Cliente cliente) {
+        Cliente guardado = clienteService.actualizar(id, cliente);
+        boolean cuentaVinculada = usuarioRepository.existsByClienteId(id);
         return ResponseEntity.ok(ClienteResponse.desde(
-                clienteService.actualizar(id, cliente), usuarioService.esAdminActual()));
+                guardado, usuarioService.esAdminActual(), cuentaVinculada));
     }
 
     @DeleteMapping("/{id}")
@@ -69,14 +85,32 @@ public class ClienteController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/{id}/foto")
+    public ResponseEntity<ClienteResponse> cambiarFoto(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        Cliente actualizado = fotoPerfilService.cambiarFotoCliente(id, file);
+        boolean cuentaVinculada = usuarioRepository.existsByClienteId(id);
+        return ResponseEntity.ok(ClienteResponse.desde(actualizado, usuarioService.esAdminActual(), cuentaVinculada));
+    }
+
+    @DeleteMapping("/{id}/foto")
+    public ResponseEntity<ClienteResponse> quitarFoto(@PathVariable Long id) {
+        Cliente actualizado = fotoPerfilService.quitarFotoCliente(id);
+        boolean cuentaVinculada = usuarioRepository.existsByClienteId(id);
+        return ResponseEntity.ok(ClienteResponse.desde(actualizado, usuarioService.esAdminActual(), cuentaVinculada));
+    }
+
     @PatchMapping("/{id}/saldo")
     public ResponseEntity<ClienteResponse> ajustarSaldo(@PathVariable Long id,
                                                          @RequestBody AjustarSaldoRequest request) {
         Usuario usuario = "restar".equals(request.getTipo())
                 ? usuarioService.verificarPasswordActual(request.getPassword())
                 : null;
-        return ResponseEntity.ok(ClienteResponse.desde(clienteService.ajustarSaldo(
-                id, request.getMonto(), request.getTipo(), request.getMetodoPago(), usuario), true));
+        Cliente cliente = clienteService.ajustarSaldo(
+                id, request.getMonto(), request.getTipo(), request.getMetodoPago(), usuario);
+        boolean cuentaVinculada = usuarioRepository.existsByClienteId(id);
+        return ResponseEntity.ok(ClienteResponse.desde(cliente, true, cuentaVinculada));
     }
 
     @GetMapping("/{id}/pagos")

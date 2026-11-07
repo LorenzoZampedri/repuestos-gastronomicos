@@ -41,6 +41,11 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
 
     long countByEstado(Pedido.EstadoPedido estado);
 
+    @Query("SELECT COUNT(DISTINCT p) FROM Pedido p JOIN p.detalles d "
+            + "WHERE p.estado = :estado AND d.producto.id IN :ids")
+    long countPendientesConProductos(@Param("estado") Pedido.EstadoPedido estado,
+                                     @Param("ids") List<Long> ids);
+
     @Modifying
     @Query("UPDATE Pedido p SET p.cliente = :clienteDestino "
             + "WHERE p.usuario.id = :usuarioId AND p.cliente.id = :clienteOrigen")

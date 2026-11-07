@@ -17,4 +17,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     List<Usuario> findByRolAndClienteIsNull(Usuario.Rol rol);
     Optional<Usuario> findByClienteId(Long clienteId);
     boolean existsByClienteId(Long clienteId);
+    long countByFotoUrl(String fotoUrl);
+
+    @org.springframework.data.jpa.repository.Query("SELECT u.cliente.id FROM Usuario u WHERE u.cliente IS NOT NULL")
+    java.util.List<Long> findClienteIdsConCuenta();
 }

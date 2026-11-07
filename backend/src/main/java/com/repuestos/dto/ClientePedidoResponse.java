@@ -12,6 +12,7 @@ public record ClientePedidoResponse(
         String telefono,
         String email,
         String direccion,
+        String fotoUrl,
         BigDecimal saldoCorriente) {
 
     public static ClientePedidoResponse desde(Cliente cliente, boolean incluirSaldo) {
@@ -24,6 +25,7 @@ public record ClientePedidoResponse(
                 cliente.getTelefono(),
                 cliente.getEmail(),
                 cliente.getDireccion(),
+                cliente.getFotoUrl(),
                 incluirSaldo ? cliente.getSaldoCorriente() : null);
     }
 }

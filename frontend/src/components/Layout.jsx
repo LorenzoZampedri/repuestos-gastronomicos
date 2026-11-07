@@ -4,6 +4,8 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import PageTransition from './PageTransition';
 import CambiarPasswordModal from './CambiarPasswordModal';
+import Avatar from './Avatar';
+import SelectorFoto from './SelectorFoto';
 import { 
   LayoutDashboard, 
   Package, 
@@ -14,11 +16,12 @@ import {
   Menu,
   X,
   LogOut,
-  User,
   UserCog,
   KeyRound,
+  Camera,
   ClipboardList,
-  ScrollText
+  ScrollText,
+  Percent
 } from 'lucide-react';
 
 const ROLE_LABELS = {
@@ -30,8 +33,9 @@ const ROLE_LABELS = {
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [fotoOpen, setFotoOpen] = useState(false);
   const [pendingOrders, setPendingOrders] = useState(0);
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isCliente, actualizarFoto } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -68,6 +72,7 @@ const Layout = () => {
     { name: 'Venta Rápida', href: '/ventas/nueva', icon: ShoppingCart },
     { name: 'Clientes', href: '/clientes', icon: Users },
     ...(isAdmin() ? [
+      { name: 'Precios', href: '/precios', icon: Percent },
       { name: 'Ctas. Corrientes', href: '/cuentas-corrientes', icon: CreditCard },
       { name: 'Usuarios', href: '/usuarios', icon: UserCog },
       { name: 'Logs', href: '/logs', icon: ScrollText },
@@ -131,9 +136,18 @@ const Layout = () => {
           {/* User section */}
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-primary-800" />
-              </div>
+              <button
+                type="button"
+                onClick={() => setFotoOpen(true)}
+                className="relative group rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                title="Cambiar foto de perfil"
+                aria-label="Cambiar foto de perfil"
+              >
+                <Avatar fotoUrl={user?.fotoUrl} nombre={user?.nombre} size="md" />
+                <span className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <Camera className="w-4 h-4 text-white" aria-hidden="true" />
+                </span>
+              </button>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
                   {user?.nombre}
@@ -198,6 +212,16 @@ const Layout = () => {
       </div>
 
       <CambiarPasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
+
+      <SelectorFoto
+        open={fotoOpen}
+        onClose={() => setFotoOpen(false)}
+        nombre={user?.nombre}
+        fotoUrl={user?.fotoUrl}
+        endpoint="/api/auth/foto"
+        compartida={isCliente()}
+        onActualizada={actualizarFoto}
+      />
     </div>
   );
 };

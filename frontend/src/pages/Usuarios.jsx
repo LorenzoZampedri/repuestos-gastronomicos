@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Edit2, KeyRound, Power, PowerOff, UserCog, Mail, Link2 } from 'lucide-react';
+import { Search, Plus, Edit2, KeyRound, Power, PowerOff, Mail, Link2, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
+import Avatar from '../components/Avatar';
+import SelectorFoto from '../components/SelectorFoto';
 
 const ROLES = [
   { value: 'ADMIN', label: 'Administrador' },
@@ -367,7 +369,7 @@ const VincularClienteModal = ({ open, usuario, onClose, onSaved }) => {
 };
 
 const Usuarios = () => {
-  const { user } = useAuth();
+  const { user, actualizarFoto } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -377,6 +379,7 @@ const Usuarios = () => {
   const [usuarioEditando, setUsuarioEditando] = useState(null);
   const [usuarioPassword, setUsuarioPassword] = useState(null);
   const [usuarioCliente, setUsuarioCliente] = useState(null);
+  const [usuarioFoto, setUsuarioFoto] = useState(null);
 
   useEffect(() => {
     fetchUsuarios();
@@ -504,9 +507,7 @@ const Usuarios = () => {
                     <tr key={usuario.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center">
-                            <UserCog className="w-4 h-4 text-primary-800" aria-hidden="true" />
-                          </div>
+                          <Avatar fotoUrl={usuario.fotoUrl} nombre={usuario.nombre} size="sm" />
                           <div>
                             <p className="font-medium text-gray-900">
                               {usuario.nombre}
@@ -547,6 +548,14 @@ const Usuarios = () => {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setUsuarioFoto(usuario)}
+                            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                            title="Cambiar foto"
+                            aria-label={`Cambiar foto de ${usuario.username}`}
+                          >
+                            <Camera className="w-4 h-4" aria-hidden="true" />
+                          </button>
                           <button
                             onClick={() => handleEditar(usuario)}
                             className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
@@ -620,6 +629,19 @@ const Usuarios = () => {
         usuario={usuarioCliente}
         onClose={() => setUsuarioCliente(null)}
         onSaved={fetchUsuarios}
+      />
+
+      <SelectorFoto
+        open={!!usuarioFoto}
+        onClose={() => setUsuarioFoto(null)}
+        nombre={usuarioFoto?.nombre}
+        fotoUrl={usuarioFoto?.fotoUrl}
+        endpoint={usuarioFoto ? `/api/usuarios/${usuarioFoto.id}/foto` : ''}
+        compartida={Boolean(usuarioFoto?.clienteId)}
+        onActualizada={(fotoUrl) => {
+          if (usuarioFoto?.username === user?.username) actualizarFoto(fotoUrl);
+          fetchUsuarios();
+        }}
       />
     </div>
   );

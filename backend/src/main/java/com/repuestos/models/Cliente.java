@@ -42,6 +42,9 @@ public class Cliente {
     @Builder.Default
     private BigDecimal saldoCorriente = BigDecimal.ZERO;
     
+    @Column(length = 255)
+    private String fotoUrl;
+    
     @Column(columnDefinition = "TEXT")
     private String observaciones;
     

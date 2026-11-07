@@ -7,6 +7,7 @@ import com.repuestos.models.AccionAuditoria;
 import com.repuestos.models.Usuario;
 import com.repuestos.security.JwtUtil;
 import com.repuestos.services.AuditoriaService;
+import com.repuestos.services.FotoPerfilService;
 import com.repuestos.services.NegocioException;
 import com.repuestos.services.UsuarioService;
 import jakarta.validation.Valid;
@@ -19,6 +20,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -32,6 +34,7 @@ public class AuthController {
     private final UsuarioService usuarioService;
     private final JwtUtil jwtUtil;
     private final AuditoriaService auditoriaService;
+    private final FotoPerfilService fotoPerfilService;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
@@ -62,7 +65,8 @@ public class AuthController {
                 "token", token,
                 "username", usuario.getUsername(),
                 "nombre", usuario.getNombre(),
-                "rol", usuario.getRol().name()));
+                "rol", usuario.getRol().name(),
+                "fotoUrl", usuario.getFotoUrl() != null ? usuario.getFotoUrl() : ""));
     }
 
     @PostMapping("/register")
@@ -81,5 +85,19 @@ public class AuthController {
     public ResponseEntity<?> cambiarPassword(@Valid @RequestBody CambioPasswordRequest request) {
         usuarioService.cambiarPasswordActual(request.passwordActual(), request.passwordNueva());
         return ResponseEntity.ok(Map.of("message", "Contraseña actualizada correctamente"));
+    }
+
+    @PutMapping("/foto")
+    public ResponseEntity<?> cambiarFotoPropia(@RequestParam("file") MultipartFile file) {
+        Usuario usuario = usuarioService.usuarioActual();
+        Usuario actualizado = fotoPerfilService.cambiarFotoUsuario(usuario.getId(), file);
+        return ResponseEntity.ok(Map.of("fotoUrl", actualizado.getFotoUrl() != null ? actualizado.getFotoUrl() : ""));
+    }
+
+    @DeleteMapping("/foto")
+    public ResponseEntity<?> quitarFotoPropia() {
+        Usuario usuario = usuarioService.usuarioActual();
+        Usuario actualizado = fotoPerfilService.quitarFotoUsuario(usuario.getId());
+        return ResponseEntity.ok(Map.of("fotoUrl", ""));
     }
 }

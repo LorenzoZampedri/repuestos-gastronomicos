@@ -41,6 +41,9 @@ public class Usuario {
     @JsonIgnore
     private Cliente cliente;
     
+    @Column(length = 255)
+    private String fotoUrl;
+    
     @Builder.Default
     private Boolean activo = true;
     

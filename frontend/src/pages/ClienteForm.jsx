@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import Avatar from '../components/Avatar';
+import SelectorFoto from '../components/SelectorFoto';
 
 const ClienteForm = () => {
   const { id } = useParams();
@@ -20,6 +22,7 @@ const ClienteForm = () => {
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [fotoOpen, setFotoOpen] = useState(false);
 
   useEffect(() => {
     if (isEditing) {
@@ -95,6 +98,33 @@ const ClienteForm = () => {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="card space-y-6">
+        {isEditing && (
+          <div className="flex items-center gap-4 pb-4 border-b border-gray-200">
+            <Avatar
+              fotoUrl={formData.fotoUrl}
+              nombre={formData.nombre}
+              size="xl"
+              tipo="cliente"
+            />
+            <div className="flex-1">
+              <p className="font-medium text-gray-900">Foto de perfil</p>
+              <p className="text-sm text-gray-500">
+                {formData.cuentaVinculada
+                  ? 'Se comparte con la cuenta de usuario vinculada.'
+                  : 'Se muestra en la lista de clientes.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setFotoOpen(true)}
+                className="mt-2 inline-flex items-center gap-2 text-sm text-primary-800 font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+              >
+                <Camera className="w-4 h-4" aria-hidden="true" />
+                Cambiar foto
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Nombre */}
         <div>
           <label htmlFor="cliente-nombre" className="label">Nombre / Razón Social *</label>
@@ -224,6 +254,18 @@ const ClienteForm = () => {
           </button>
         </div>
       </form>
+
+      {isEditing && (
+        <SelectorFoto
+          open={fotoOpen}
+          onClose={() => setFotoOpen(false)}
+          nombre={formData.nombre}
+          fotoUrl={formData.fotoUrl}
+          endpoint={`/api/clientes/${id}/foto`}
+          compartida={Boolean(formData.cuentaVinculada)}
+          onActualizada={(fotoUrl) => setFormData((prev) => ({ ...prev, fotoUrl }))}
+        />
+      )}
     </div>
   );
 };

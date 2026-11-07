@@ -73,7 +73,7 @@ const Configuracion = () => {
     setSaving(true);
     try {
       await api.put('/api/configuracion/cotizacion_usd_ars', { valor: String(valor) });
-      toast.success('Cotización actualizada. Los precios en pesos se recalculan al guardar productos.');
+      toast.success('Cotización actualizada. Los precios en pesos de todos los productos se recalcularon automáticamente.');
       if (historialAbierto) fetchHistorial();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Error al guardar la cotización');
@@ -164,8 +164,8 @@ const Configuracion = () => {
           <div>
             <h2 className="font-semibold text-gray-900">Cotización del dólar</h2>
             <p className="text-sm text-gray-500">
-              Cuántos pesos vale 1 dólar. Se usa para convertir los precios en USD a pesos
-              en el catálogo público.
+              Cuántos pesos vale 1 dólar. Se usa para actualizar automáticamente los precios en
+              pesos (ARS) de todos los productos activos en base a sus precios en dólares (USD).
             </p>
           </div>
         </div>

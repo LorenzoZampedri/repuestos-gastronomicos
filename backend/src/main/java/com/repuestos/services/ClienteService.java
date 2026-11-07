@@ -33,6 +33,7 @@ public class ClienteService {
     private final VentaRepository ventaRepository;
     private final VentaService ventaService;
     private final AuditoriaService auditoriaService;
+    private final FotoPerfilService fotoPerfilService;
 
     @Transactional
     public Cliente asegurarClienteParaUsuario(Usuario usuario) {
@@ -54,6 +55,7 @@ public class ClienteService {
 
         usuario.setCliente(cliente);
         usuarioRepository.save(usuario);
+        fotoPerfilService.reconciliarVinculo(usuario, cliente);
         return cliente;
     }
     
@@ -100,6 +102,7 @@ public class ClienteService {
 
         usuario.setCliente(destino);
         Usuario guardado = usuarioRepository.save(usuario);
+        fotoPerfilService.reconciliarVinculo(guardado, destino);
 
         if (anterior != null && !clienteTieneHistorial(anterior)) {
             anterior.setActivo(false);

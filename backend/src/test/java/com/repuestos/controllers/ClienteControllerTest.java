@@ -3,6 +3,7 @@ package com.repuestos.controllers;
 import com.repuestos.dto.ClienteResponse;
 import com.repuestos.models.Cliente;
 import com.repuestos.models.Usuario;
+import com.repuestos.repositories.UsuarioRepository;
 import com.repuestos.services.ClienteService;
 import com.repuestos.services.NegocioException;
 import com.repuestos.services.UsuarioService;
@@ -28,6 +29,7 @@ class ClienteControllerTest {
 
     @Mock private ClienteService clienteService;
     @Mock private UsuarioService usuarioService;
+    @Mock private UsuarioRepository usuarioRepository;
     @InjectMocks private ClienteController clienteController;
 
     @Test

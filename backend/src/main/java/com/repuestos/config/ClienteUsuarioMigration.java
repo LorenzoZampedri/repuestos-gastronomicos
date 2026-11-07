@@ -4,6 +4,7 @@ import com.repuestos.models.Cliente;
 import com.repuestos.models.Usuario;
 import com.repuestos.repositories.ClienteRepository;
 import com.repuestos.repositories.UsuarioRepository;
+import com.repuestos.services.FotoPerfilService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -23,6 +24,7 @@ public class ClienteUsuarioMigration implements CommandLineRunner {
 
     private final UsuarioRepository usuarioRepository;
     private final ClienteRepository clienteRepository;
+    private final FotoPerfilService fotoPerfilService;
 
     @Override
     @Transactional
@@ -44,6 +46,7 @@ public class ClienteUsuarioMigration implements CommandLineRunner {
                     .build());
             usuario.setCliente(cliente);
             usuarioRepository.save(usuario);
+            fotoPerfilService.reconciliarVinculo(usuario, cliente);
         }
 
         log.info("Migración de clientes: {} usuario(s) CLIENTE quedaron vinculados a un Cliente",

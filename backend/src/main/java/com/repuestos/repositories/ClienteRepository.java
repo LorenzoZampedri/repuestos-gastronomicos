@@ -19,4 +19,6 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
     
     @Query("SELECT c FROM Cliente c WHERE c.activo = true AND c.saldoCorriente > 0 ORDER BY c.id ASC")
     List<Cliente> findClientesConDeuda();
+    
+    long countByFotoUrl(String fotoUrl);
 }

@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -114,7 +113,7 @@ public class ProductoService {
     private void sincronizarPrecioArs(Producto producto) {
         BigDecimal cotizacion = configuracionService.getCotizacionUsdArs();
         if (producto.getPrecioUsd() != null && producto.getPrecioUsd().compareTo(BigDecimal.ZERO) > 0 && cotizacion != null) {
-            producto.setPrecio(producto.getPrecioUsd().multiply(cotizacion).setScale(2, RoundingMode.HALF_UP));
+            producto.setPrecio(PreciosArs.desdeUsd(producto.getPrecioUsd(), cotizacion));
         } else if (producto.getPrecio() == null) {
             producto.setPrecio(BigDecimal.ZERO);
         }

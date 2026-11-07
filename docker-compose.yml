@@ -34,9 +34,11 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       APP_UPLOAD_DIR: /app/uploads
+      APP_AVATAR_DIR: /app/avatares
       TZ: America/Argentina/Buenos_Aires
     volumes:
       - uploads:/app/uploads
+      - avatares:/app/avatares
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,6 +61,7 @@ services:
 volumes:
   pgdata:
   uploads:
+  avatares:
 
 networks:
   repuestos-network:
