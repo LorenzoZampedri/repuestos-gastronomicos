@@ -13,6 +13,7 @@ const FiltroDesplegable = ({
   abierto,
   onToggle,
   textoVacio,
+  aviso,
 }) => {
   const contenedorRef = useRef(null);
   const botonRef = useRef(null);
@@ -104,6 +105,7 @@ const FiltroDesplegable = ({
         >
           <p className="text-sm font-semibold text-gray-900">{titulo}</p>
           {ayuda && <p className="mt-1 text-xs text-gray-500">{ayuda}</p>}
+          {aviso && <p className="mt-1 text-xs font-medium text-primary-700">{aviso}</p>}
 
           <div className="relative mt-3">
             <Search
@@ -141,6 +143,7 @@ const FiltroDesplegable = ({
             {opcionesFiltradas.map((opcion) => {
               const clave = String(opcion.id);
               const marcada = Object.prototype.hasOwnProperty.call(seleccionados || {}, clave);
+              const sinVentas = opcion.count === 0;
               return (
                 <label
                   key={clave}
@@ -152,8 +155,12 @@ const FiltroDesplegable = ({
                     onChange={(evento) => alternarOpcion(opcion, evento.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-primary-800 focus:ring-primary-500"
                   />
-                  <span className="flex-1 text-sm text-gray-700">{opcion.label}</span>
-                  <span className="text-xs text-gray-400">({opcion.count})</span>
+                  <span className={`flex-1 text-sm ${sinVentas ? 'text-gray-400' : 'text-gray-700'}`}>
+                    {opcion.label}
+                  </span>
+                  <span className={`text-xs ${sinVentas ? 'text-gray-300' : 'text-gray-400'}`}>
+                    ({opcion.count})
+                  </span>
                 </label>
               );
             })}

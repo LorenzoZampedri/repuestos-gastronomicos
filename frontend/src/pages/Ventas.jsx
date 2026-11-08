@@ -89,7 +89,7 @@ const Ventas = () => {
           siguiente[id] =
             dato?.nombre ||
             dato?.username ||
-            `${tipo === 'cliente' ? 'Cliente' : 'Usuario'} #${id}`;
+            `${tipo === 'cliente' ? 'Cliente' : 'Personal'} #${id}`;
         } else {
           delete siguiente[id];
         }
@@ -190,13 +190,21 @@ const Ventas = () => {
     );
   };
 
-  const opcionesClientes = useMemo(
-    () => construirOpcionesClientes(ventas, clientesSel),
+  const ventasParaClientes = useMemo(
+    () => filtrarVentas(ventas, { clientes: {}, usuarios: usuariosSel }),
+    [ventas, usuariosSel]
+  );
+  const ventasParaUsuarios = useMemo(
+    () => filtrarVentas(ventas, { clientes: clientesSel, usuarios: {} }),
     [ventas, clientesSel]
   );
+  const opcionesClientes = useMemo(
+    () => construirOpcionesClientes(ventas, ventasParaClientes, clientesSel),
+    [ventas, ventasParaClientes, clientesSel]
+  );
   const opcionesUsuarios = useMemo(
-    () => construirOpcionesUsuarios(ventas, usuariosSel),
-    [ventas, usuariosSel]
+    () => construirOpcionesUsuarios(ventas, ventasParaUsuarios, usuariosSel),
+    [ventas, ventasParaUsuarios, usuariosSel]
   );
   const ventasFiltradas = useMemo(
     () => filtrarVentas(ventas, { clientes: clientesSel, usuarios: usuariosSel }),
@@ -325,18 +333,28 @@ const Ventas = () => {
               abierto={desplegableAbierto === 'clientes'}
               onToggle={() => alternarDesplegable('clientes')}
               textoVacio="No hay clientes con ventas en este período"
+              aviso={
+                Object.keys(usuariosSel).length > 0
+                  ? 'Los números cuentan solo las ventas del personal elegido'
+                  : ''
+              }
             />
             <FiltroDesplegable
-              etiqueta="Usuario"
+              etiqueta="Personal"
               icono={Users}
-              titulo="Filtrar por usuario"
-              ayuda="Quién registró la venta (en pedidos online, quien los aprobó)"
+              titulo="Filtrar por personal"
+              ayuda="Personal que registró la venta (columna «Vendedor»). En pedidos online, quien los aprobó."
               opciones={opcionesUsuarios}
               seleccionados={usuariosSel}
               onChange={cambiarUsuarios}
               abierto={desplegableAbierto === 'usuarios'}
               onToggle={() => alternarDesplegable('usuarios')}
-              textoVacio="No hay usuarios con ventas en este período"
+              textoVacio="No hay personal con ventas en este período"
+              aviso={
+                Object.keys(clientesSel).length > 0
+                  ? 'Los números cuentan solo las ventas de los clientes elegidos'
+                  : ''
+              }
             />
           </div>
 
@@ -363,12 +381,12 @@ const Ventas = () => {
                   key={`usuario-${id}`}
                   className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-50 text-primary-800 text-sm border border-primary-200"
                 >
-                  Usuario: {nombre || `Usuario #${id}`}
+                  Personal: {nombre || `Personal #${id}`}
                   <button
                     type="button"
                     onClick={() => quitarUsuario(id)}
                     className="p-0.5 rounded-full hover:bg-primary-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                    aria-label={`Quitar filtro de usuario ${nombre}`}
+                    aria-label={`Quitar filtro de personal ${nombre}`}
                   >
                     <X className="w-3 h-3" aria-hidden="true" />
                   </button>
