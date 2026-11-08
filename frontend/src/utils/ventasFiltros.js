@@ -16,9 +16,10 @@ const aMapaIds = (seleccion) => {
   return new Set(ids.map((id) => String(id)));
 };
 
-const construirBase = (ventas, seleccionados, obtenerId, obtenerNombre) => {
+const construirBase = (ventas, seleccionados, obtenerId, obtenerNombre, obtenerExtra) => {
   const conteos = new Map();
   const nombres = new Map();
+  const extras = new Map();
 
   for (const venta of ventas || []) {
     const id = obtenerId(venta);
@@ -27,78 +28,111 @@ const construirBase = (ventas, seleccionados, obtenerId, obtenerNombre) => {
     conteos.set(clave, (conteos.get(clave) || 0) + 1);
     const nombre = obtenerNombre(venta);
     if (nombre != null && nombre !== '') nombres.set(clave, String(nombre));
+    if (obtenerExtra) {
+      const extra = obtenerExtra(venta);
+      if (extra != null && extra !== '') extras.set(clave, String(extra));
+    }
   }
 
   for (const [id, nombre] of Object.entries(seleccionados || {})) {
     if (!conteos.has(id)) conteos.set(id, 0);
-    if (nombre != null && nombre !== '') nombres.set(id, String(nombre));
+    if (!nombres.has(id) && nombre != null && nombre !== '') nombres.set(id, String(nombre));
   }
 
-  return { conteos, nombres };
+  return { conteos, nombres, extras };
 };
 
-export const construirOpcionesClientes = (ventas, seleccionados = {}) => {
-  const { conteos, nombres } = construirBase(
-    ventas,
-    seleccionados,
-    (venta) => venta.cliente?.id,
-    (venta) => venta.cliente?.nombre
-  );
-
-  const anonimas = (ventas || []).filter((venta) => venta.cliente?.id == null).length;
-  const anonimaSeleccionada = Object.prototype.hasOwnProperty.call(seleccionados || {}, ID_ANONIMA);
-  const opciones = [];
-
-  if (anonimas > 0 || anonimaSeleccionada) {
-    opciones.push({ id: ID_ANONIMA, label: ETIQUETA_ANONIMA, count: anonimas });
-  }
-
+const agruparIdsPorNombre = (nombres) => {
   const idsPorNombre = new Map();
   for (const [id, nombre] of nombres) {
-    if (id === ID_ANONIMA) continue;
     const clave = normalizarTexto(nombre).trim();
     if (!idsPorNombre.has(clave)) idsPorNombre.set(clave, new Set());
     idsPorNombre.get(clave).add(id);
   }
+  return idsPorNombre;
+};
 
-  const clientes = [];
-  for (const [id, count] of conteos) {
+const ordenarPorConteo = (opciones) => {
+  const comparar = (a, b) => a.label.localeCompare(b.label, 'es');
+  const conVentas = opciones.filter((opcion) => opcion.count > 0).sort(comparar);
+  const sinVentas = opciones.filter((opcion) => opcion.count === 0).sort(comparar);
+  return [...conVentas, ...sinVentas];
+};
+
+export const construirOpcionesClientes = (universo, ventasConteo, seleccionados = {}) => {
+  const obtenerId = (venta) => venta.cliente?.id;
+  const obtenerNombre = (venta) => venta.cliente?.nombre;
+  const { conteos, nombres } = construirBase(universo, seleccionados, obtenerId, obtenerNombre);
+  const { conteos: conteosConteo } = construirBase(ventasConteo, {}, obtenerId, obtenerNombre);
+
+  const anonimasUniverso = (universo || []).filter((venta) => venta.cliente?.id == null).length;
+  const anonimaSeleccionada = Object.prototype.hasOwnProperty.call(seleccionados || {}, ID_ANONIMA);
+  const opciones = [];
+
+  if (anonimasUniverso > 0 || anonimaSeleccionada) {
+    const anonimas = (ventasConteo || []).filter((venta) => venta.cliente?.id == null).length;
+    opciones.push({ id: ID_ANONIMA, label: ETIQUETA_ANONIMA, count: anonimas });
+  }
+
+  const nombresBase = new Map();
+  for (const id of conteos.keys()) {
     if (id === ID_ANONIMA) continue;
-    const nombre = nombres.get(id) || `Cliente #${id}`;
+    nombresBase.set(id, nombres.get(id) || `Cliente #${id}`);
+  }
+
+  const idsPorNombre = agruparIdsPorNombre(nombresBase);
+  const clientes = [];
+  for (const [id, nombre] of nombresBase) {
     const clave = normalizarTexto(nombre).trim();
     const repetido = (idsPorNombre.get(clave)?.size || 0) > 1;
     clientes.push({
       id,
       label: repetido ? `${nombre} · #${id}` : nombre,
-      count,
+      count: conteosConteo.get(id) || 0,
     });
   }
 
-  clientes.sort((a, b) => a.label.localeCompare(b.label, 'es'));
-
-  return [...opciones, ...clientes];
+  return [...opciones, ...ordenarPorConteo(clientes)];
 };
 
-export const construirOpcionesUsuarios = (ventas, seleccionados = {}) => {
-  const { conteos, nombres } = construirBase(
-    ventas,
+export const construirOpcionesUsuarios = (universo, ventasConteo, seleccionados = {}) => {
+  const obtenerId = (venta) => venta.usuario?.id;
+  const obtenerNombre = (venta) => venta.usuario?.nombre || venta.usuario?.username;
+  const obtenerUsername = (venta) => venta.usuario?.username;
+  const { conteos, nombres, extras } = construirBase(
+    universo,
     seleccionados,
-    (venta) => venta.usuario?.id,
-    (venta) => venta.usuario?.nombre || venta.usuario?.username
+    obtenerId,
+    obtenerNombre,
+    obtenerUsername
+  );
+  const { conteos: conteosConteo } = construirBase(
+    ventasConteo,
+    {},
+    obtenerId,
+    obtenerNombre,
+    obtenerUsername
   );
 
+  const nombresBase = new Map();
+  for (const id of conteos.keys()) {
+    nombresBase.set(id, nombres.get(id) || `Personal #${id}`);
+  }
+
+  const idsPorNombre = agruparIdsPorNombre(nombresBase);
   const usuarios = [];
-  for (const [id, count] of conteos) {
+  for (const [id, nombre] of nombresBase) {
+    const clave = normalizarTexto(nombre).trim();
+    const repetido = (idsPorNombre.get(clave)?.size || 0) > 1;
+    const sufijo = extras.get(id) ? `@${extras.get(id)}` : `#${id}`;
     usuarios.push({
       id,
-      label: nombres.get(id) || `Usuario #${id}`,
-      count,
+      label: repetido ? `${nombre} · ${sufijo}` : nombre,
+      count: conteosConteo.get(id) || 0,
     });
   }
 
-  usuarios.sort((a, b) => a.label.localeCompare(b.label, 'es'));
-
-  return usuarios;
+  return ordenarPorConteo(usuarios);
 };
 
 export const filtrarVentas = (ventas, { clientes, usuarios } = {}) => {
