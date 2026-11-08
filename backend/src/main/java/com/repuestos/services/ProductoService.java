@@ -22,7 +22,7 @@ public class ProductoService {
     private final AuditoriaService auditoriaService;
     
     public List<Producto> listarTodos() {
-        return productoRepository.findByActivoTrue();
+        return productoRepository.findByActivoTrueOrderByIdAsc();
     }
     
     public Producto buscarPorId(Long id) {
@@ -40,7 +40,7 @@ public class ProductoService {
     }
     
     public List<Producto> listarPorCategoria(Long categoriaId) {
-        return productoRepository.findByCategoriaIdAndActivoTrue(categoriaId);
+        return productoRepository.findByCategoriaIdAndActivoTrueOrderByIdAsc(categoriaId);
     }
     
     public List<Producto> productosStockBajo() {

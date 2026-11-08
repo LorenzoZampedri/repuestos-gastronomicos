@@ -283,7 +283,7 @@ public class PreciosMasivosService {
         BigDecimal cotizacion = configuracionService.getCotizacionUsdArs();
         long sinPrecioUsd = 0;
         long desactualizados = 0;
-        for (Producto producto : productoRepository.findByActivoTrue()) {
+        for (Producto producto : productoRepository.findByActivoTrueOrderByIdAsc()) {
             boolean tieneUsd = producto.getPrecioUsd() != null
                     && producto.getPrecioUsd().compareTo(BigDecimal.ZERO) > 0;
             if (!tieneUsd) {
@@ -432,10 +432,10 @@ public class PreciosMasivosService {
     private List<Producto> productosDelAlcance(Ajuste ajuste) {
         return switch (ajuste.alcanceTipo()) {
             case ALCANCE_CATEGORIAS -> productoRepository
-                    .findByCategoriaIdInAndActivoTrue(ajuste.categoriaIds());
+                    .findByCategoriaIdInAndActivoTrueOrderByIdAsc(ajuste.categoriaIds());
             case ALCANCE_PRODUCTOS -> productoRepository
                     .findActivosByIds(ajuste.productoIds());
-            default -> productoRepository.findByActivoTrue();
+            default -> productoRepository.findByActivoTrueOrderByIdAsc();
         };
     }
 

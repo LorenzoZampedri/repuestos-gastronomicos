@@ -114,6 +114,7 @@ const Productos = () => {
   const productosVisibles = filtroStockBajo
     ? [...productosFiltrados].sort(
         (a, b) => (a.stockActual - a.stockMinimo) - (b.stockActual - b.stockMinimo)
+          || a.id - b.id
       )
     : productosFiltrados;
 

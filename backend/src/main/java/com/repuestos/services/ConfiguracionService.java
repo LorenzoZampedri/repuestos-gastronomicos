@@ -144,7 +144,7 @@ public class ConfiguracionService {
         if (cotizacion == null) {
             return 0;
         }
-        List<Producto> productos = productoRepository.findByActivoTrue();
+        List<Producto> productos = productoRepository.findByActivoTrueOrderByIdAsc();
         List<Producto> modificados = new ArrayList<>();
         for (Producto producto : productos) {
             if (producto.getPrecioUsd() == null

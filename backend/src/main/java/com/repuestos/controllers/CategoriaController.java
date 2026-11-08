@@ -22,7 +22,7 @@ public class CategoriaController {
     
     @GetMapping
     public ResponseEntity<List<Categoria>> listar() {
-        return ResponseEntity.ok(categoriaRepository.findByActivaTrue());
+        return ResponseEntity.ok(categoriaRepository.findByActivaTrueOrderByIdAsc());
     }
     
     @PostMapping
