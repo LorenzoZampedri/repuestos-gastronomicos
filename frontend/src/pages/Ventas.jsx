@@ -1,11 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Plus, Eye, Calendar, Filter, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Plus, Eye, Calendar, Filter, Trash2, ChevronLeft, ChevronRight, User, Users, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
+import FiltroDesplegable from '../components/FiltroDesplegable';
 import { formatMoney } from '../utils/format';
+import {
+  construirOpcionesClientes,
+  construirOpcionesUsuarios,
+  filtrarVentas,
+  sumarTotales,
+} from '../utils/ventasFiltros';
 
 const POR_PAGINA = 10;
 const FILTROS_VALIDOS = ['hoy', 'ayer', 'semana', 'mes', 'todo'];
@@ -14,6 +21,17 @@ const leerFiltroInicial = () => {
   if (/^#venta-\d+$/.test(window.location.hash)) return 'todo';
   const filtro = new URLSearchParams(window.location.search).get('filtro');
   return FILTROS_VALIDOS.includes(filtro) ? filtro : 'mes';
+};
+
+const leerSeleccionInicial = () => {
+  if (/^#venta-\d+$/.test(window.location.hash)) return { clientes: {}, usuarios: {} };
+  const params = new URLSearchParams(window.location.search);
+  const cliente = params.get('cliente');
+  const usuario = params.get('usuario');
+  return {
+    clientes: cliente ? { [cliente]: '' } : {},
+    usuarios: usuario ? { [usuario]: '' } : {},
+  };
 };
 
 const Ventas = () => {
@@ -28,13 +46,18 @@ const Ventas = () => {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [pagina, setPagina] = useState(1);
   const [ventaResaltada, setVentaResaltada] = useState(null);
+  const [seleccionInicial] = useState(leerSeleccionInicial);
+  const [clientesSel, setClientesSel] = useState(seleccionInicial.clientes);
+  const [usuariosSel, setUsuariosSel] = useState(seleccionInicial.usuarios);
+  const [desplegableAbierto, setDesplegableAbierto] = useState(null);
 
   useEffect(() => {
     aplicarFiltro(filtroInicial);
 
     const params = new URLSearchParams(window.location.search);
-    if (params.has('filtro')) {
-      params.delete('filtro');
+    const parametrosIniciales = ['filtro', 'cliente', 'usuario'];
+    if (parametrosIniciales.some((clave) => params.has(clave))) {
+      parametrosIniciales.forEach((clave) => params.delete(clave));
       const search = params.toString();
       window.history.replaceState(
         null,
@@ -47,6 +70,37 @@ const Ventas = () => {
   useEffect(() => {
     if (fechaInicio && fechaFin) fetchVentas();
   }, [fechaInicio, fechaFin]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    const resolver = (seleccion, tipo) => {
+      let cambio = false;
+      const siguiente = { ...seleccion };
+      for (const [id, nombre] of Object.entries(seleccion)) {
+        if (nombre) continue;
+        const venta = ventas.find((v) =>
+          tipo === 'cliente'
+            ? String(v.cliente?.id) === id
+            : String(v.usuario?.id) === id
+        );
+        if (venta) {
+          const dato = tipo === 'cliente' ? venta.cliente : venta.usuario;
+          siguiente[id] =
+            dato?.nombre ||
+            dato?.username ||
+            `${tipo === 'cliente' ? 'Cliente' : 'Usuario'} #${id}`;
+        } else {
+          delete siguiente[id];
+        }
+        cambio = true;
+      }
+      return cambio ? siguiente : seleccion;
+    };
+
+    setClientesSel((previos) => resolver(previos, 'cliente'));
+    setUsuariosSel((previos) => resolver(previos, 'usuario'));
+  }, [loading, ventas]);
 
   useEffect(() => {
     if (loading) return;
@@ -136,14 +190,66 @@ const Ventas = () => {
     );
   };
 
-  const totalVentas = ventas.reduce((sum, v) => sum + (v.total || 0), 0);
+  const opcionesClientes = useMemo(
+    () => construirOpcionesClientes(ventas, clientesSel),
+    [ventas, clientesSel]
+  );
+  const opcionesUsuarios = useMemo(
+    () => construirOpcionesUsuarios(ventas, usuariosSel),
+    [ventas, usuariosSel]
+  );
+  const ventasFiltradas = useMemo(
+    () => filtrarVentas(ventas, { clientes: clientesSel, usuarios: usuariosSel }),
+    [ventas, clientesSel, usuariosSel]
+  );
 
-  const totalPaginas = Math.max(1, Math.ceil(ventas.length / POR_PAGINA));
+  const filtrosActivos =
+    Object.keys(clientesSel).length > 0 || Object.keys(usuariosSel).length > 0;
+  const totalVentas = sumarTotales(ventasFiltradas);
+
+  const totalPaginas = Math.max(1, Math.ceil(ventasFiltradas.length / POR_PAGINA));
   const paginaActual = Math.min(pagina, totalPaginas);
   const inicioSlice = (paginaActual - 1) * POR_PAGINA;
-  const ventasPagina = ventas.slice(inicioSlice, inicioSlice + POR_PAGINA);
-  const desdeMostrar = ventas.length === 0 ? 0 : inicioSlice + 1;
+  const ventasPagina = ventasFiltradas.slice(inicioSlice, inicioSlice + POR_PAGINA);
+  const desdeMostrar = ventasFiltradas.length === 0 ? 0 : inicioSlice + 1;
   const hastaMostrar = inicioSlice + ventasPagina.length;
+
+  const alternarDesplegable = (nombre) =>
+    setDesplegableAbierto((previo) => (previo === nombre ? null : nombre));
+
+  const cambiarClientes = (siguientes) => {
+    setClientesSel(siguientes);
+    setPagina(1);
+  };
+
+  const cambiarUsuarios = (siguientes) => {
+    setUsuariosSel(siguientes);
+    setPagina(1);
+  };
+
+  const quitarCliente = (id) => {
+    setClientesSel((previos) => {
+      const siguientes = { ...previos };
+      delete siguientes[id];
+      return siguientes;
+    });
+    setPagina(1);
+  };
+
+  const quitarUsuario = (id) => {
+    setUsuariosSel((previos) => {
+      const siguientes = { ...previos };
+      delete siguientes[id];
+      return siguientes;
+    });
+    setPagina(1);
+  };
+
+  const limpiarFiltros = () => {
+    setClientesSel({});
+    setUsuariosSel({});
+    setPagina(1);
+  };
 
   const paginasVisibles = () => {
     const pages = [];
@@ -207,6 +313,77 @@ const Ventas = () => {
               </button>
             ))}
           </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <FiltroDesplegable
+              etiqueta="Cliente"
+              icono={User}
+              titulo="Filtrar por cliente"
+              opciones={opcionesClientes}
+              seleccionados={clientesSel}
+              onChange={cambiarClientes}
+              abierto={desplegableAbierto === 'clientes'}
+              onToggle={() => alternarDesplegable('clientes')}
+              textoVacio="No hay clientes con ventas en este período"
+            />
+            <FiltroDesplegable
+              etiqueta="Usuario"
+              icono={Users}
+              titulo="Filtrar por usuario"
+              ayuda="Quién registró la venta (en pedidos online, quien los aprobó)"
+              opciones={opcionesUsuarios}
+              seleccionados={usuariosSel}
+              onChange={cambiarUsuarios}
+              abierto={desplegableAbierto === 'usuarios'}
+              onToggle={() => alternarDesplegable('usuarios')}
+              textoVacio="No hay usuarios con ventas en este período"
+            />
+          </div>
+
+          {filtrosActivos && (
+            <div className="flex flex-wrap items-center gap-2">
+              {Object.entries(clientesSel).map(([id, nombre]) => (
+                <span
+                  key={`cliente-${id}`}
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-50 text-primary-800 text-sm border border-primary-200"
+                >
+                  Cliente: {nombre || `Cliente #${id}`}
+                  <button
+                    type="button"
+                    onClick={() => quitarCliente(id)}
+                    className="p-0.5 rounded-full hover:bg-primary-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    aria-label={`Quitar filtro de cliente ${nombre}`}
+                  >
+                    <X className="w-3 h-3" aria-hidden="true" />
+                  </button>
+                </span>
+              ))}
+              {Object.entries(usuariosSel).map(([id, nombre]) => (
+                <span
+                  key={`usuario-${id}`}
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-50 text-primary-800 text-sm border border-primary-200"
+                >
+                  Usuario: {nombre || `Usuario #${id}`}
+                  <button
+                    type="button"
+                    onClick={() => quitarUsuario(id)}
+                    className="p-0.5 rounded-full hover:bg-primary-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    aria-label={`Quitar filtro de usuario ${nombre}`}
+                  >
+                    <X className="w-3 h-3" aria-hidden="true" />
+                  </button>
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={limpiarFiltros}
+                className="text-sm font-medium text-primary-800 hover:text-primary-700 px-2 py-1 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              >
+                Limpiar filtros
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-4 items-end">
             <div className="flex-1">
               <label className="label">Fecha inicio</label>
@@ -218,10 +395,19 @@ const Ventas = () => {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-500">Total del período</p>
+            <p className="text-sm text-gray-500">
+              {filtrosActivos
+                ? `Total de las ventas filtradas · ${ventasFiltradas.length} de ${ventas.length} ventas`
+                : 'Total del período'}
+            </p>
             <p className="text-2xl font-bold text-primary-800">
               {formatMoney(totalVentas, 'ARS')}
             </p>
+            {filtrosActivos && (
+              <p className="text-xs text-gray-400">
+                Mostrando {desdeMostrar}–{hastaMostrar} de {ventasFiltradas.length} ventas del período
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -299,10 +485,23 @@ const Ventas = () => {
                     </td>
                   </tr>
                 ))}
-                {ventas.length === 0 && (
+                {ventasFiltradas.length === 0 && (
                   <tr>
                     <td colSpan="7" className="py-12 text-center text-gray-500">
-                      No se encontraron ventas en este período
+                      {filtrosActivos ? (
+                        <div className="flex flex-col items-center gap-3">
+                          <span>No hay ventas que coincidan con los filtros</span>
+                          <button
+                            type="button"
+                            onClick={limpiarFiltros}
+                            className="px-4 py-2 rounded-lg bg-primary-800 text-white text-sm font-medium hover:bg-primary-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                          >
+                            Limpiar filtros
+                          </button>
+                        </div>
+                      ) : (
+                        'No se encontraron ventas en este período'
+                      )}
                     </td>
                   </tr>
                 )}
@@ -311,10 +510,10 @@ const Ventas = () => {
           </div>
 
           {/* Paginación */}
-          {ventas.length > POR_PAGINA && (
+          {ventasFiltradas.length > POR_PAGINA && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100">
               <p className="text-sm text-gray-500">
-                Mostrando {desdeMostrar}–{hastaMostrar} de {ventas.length} ventas
+                Mostrando {desdeMostrar}–{hastaMostrar} de {ventasFiltradas.length} ventas
               </p>
               <div className="flex items-center gap-1">
                 <button
