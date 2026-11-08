@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Edit2, KeyRound, Power, PowerOff, Mail, Link2, Camera } from 'lucide-react';
+import { Search, Plus, Edit2, KeyRound, Power, PowerOff, Mail, Link2, Camera, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -368,8 +368,42 @@ const VincularClienteModal = ({ open, usuario, onClose, onSaved }) => {
   );
 };
 
+const VistaComoModal = ({ open, usuario, onClose, onConfirm, iniciando }) => {
+  return (
+    <Modal open={open && !!usuario} onClose={onClose} labelledBy="vista-como-titulo">
+      <div className="p-6">
+        <h3 id="vista-como-titulo" className="text-lg font-semibold mb-2">
+          Ver como usuario
+        </h3>
+        <p className="text-sm text-gray-600">
+          Vas a ver el sistema como{' '}
+          <span className="font-medium text-gray-900">{usuario?.nombre}</span>{' '}
+          ({rolLabel(usuario?.rol)}) en esta pestaña. Es de solo lectura: no vas a poder
+          modificar nada. Tu sesión de administrador no se cierra y queda registrado en
+          Logs. La vista dura 30 minutos.
+        </p>
+
+        <div className="flex justify-end gap-3 pt-6">
+          <button type="button" onClick={onClose} className="btn-secondary" disabled={iniciando}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="btn-primary flex items-center gap-2"
+            disabled={iniciando}
+          >
+            <Eye className="w-4 h-4" aria-hidden="true" />
+            {iniciando ? 'Iniciando...' : 'Ver como'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
 const Usuarios = () => {
-  const { user, actualizarFoto } = useAuth();
+  const { user, actualizarFoto, iniciarVistaComo } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -380,6 +414,8 @@ const Usuarios = () => {
   const [usuarioPassword, setUsuarioPassword] = useState(null);
   const [usuarioCliente, setUsuarioCliente] = useState(null);
   const [usuarioFoto, setUsuarioFoto] = useState(null);
+  const [usuarioVista, setUsuarioVista] = useState(null);
+  const [iniciandoVista, setIniciandoVista] = useState(false);
 
   useEffect(() => {
     fetchUsuarios();
@@ -404,6 +440,18 @@ const Usuarios = () => {
   const handleEditar = (usuario) => {
     setUsuarioEditando(usuario);
     setFormOpen(true);
+  };
+
+  const handleIniciarVista = async () => {
+    if (!usuarioVista) return;
+
+    setIniciandoVista(true);
+    try {
+      await iniciarVistaComo(usuarioVista.id);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'No se pudo iniciar la vista');
+      setIniciandoVista(false);
+    }
   };
 
   const handleToggleActivo = async (usuario) => {
@@ -548,6 +596,16 @@ const Usuarios = () => {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center justify-end gap-1">
+                          {!esMismoUsuario && usuario.rol !== 'ADMIN' && usuario.activo && (
+                            <button
+                              onClick={() => setUsuarioVista(usuario)}
+                              className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                              title="Ver como este usuario"
+                              aria-label={`Ver como ${usuario.username}`}
+                            >
+                              <Eye className="w-4 h-4" aria-hidden="true" />
+                            </button>
+                          )}
                           <button
                             onClick={() => setUsuarioFoto(usuario)}
                             className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
@@ -629,6 +687,17 @@ const Usuarios = () => {
         usuario={usuarioCliente}
         onClose={() => setUsuarioCliente(null)}
         onSaved={fetchUsuarios}
+      />
+
+      <VistaComoModal
+        open={!!usuarioVista}
+        usuario={usuarioVista}
+        onClose={() => {
+          setUsuarioVista(null);
+          setIniciandoVista(false);
+        }}
+        onConfirm={handleIniciarVista}
+        iniciando={iniciandoVista}
       />
 
       <SelectorFoto

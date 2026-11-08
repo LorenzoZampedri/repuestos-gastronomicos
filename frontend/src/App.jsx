@@ -8,6 +8,7 @@ import { CurrencyProvider } from './context/CurrencyContext';
 // Layout
 import Layout from './components/Layout';
 import PublicLayout from './components/PublicLayout';
+import BannerVistaComo from './components/BannerVistaComo';
 import PageTransition from './components/PageTransition';
 
 // Pages
@@ -111,6 +112,7 @@ function App() {
             },
           }}
         />
+        <BannerVistaComo />
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={

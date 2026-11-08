@@ -16,6 +16,7 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 - **Precios masivos y cotización** - Actualización en dólares con vista previa, lotes históricos, reversión y sincronización automática de pesos (ARS)
 - **Auditoría** - Registro inmutable de acciones y accesos, consultable solo por ADMIN
 - **Fotos de perfil** - Avatares privados para usuarios y clientes, compartidos automáticamente cuando la cuenta está vinculada a una ficha
+- **Ver como usuario** - Un ADMIN puede navegar la app como un EMPLEADO o CLIENTE en modo solo lectura, sin cerrar su sesión y con auditoría
 - **Multi-rol** - Admin, Empleado y Cliente
 - **Responsive** - Funciona en celular y PC
 
@@ -129,6 +130,31 @@ Endpoints:
 - `PUT/DELETE /api/usuarios/{id}/foto` - foto de un usuario (solo ADMIN).
 - `PUT/DELETE /api/clientes/{id}/foto` - foto de un cliente (ADMIN y EMPLEADO).
 - `GET /api/avatares/{archivo}` - entrega la imagen; un CLIENTE solo puede ver la propia.
+
+### Ver como usuario
+
+Desde **Usuarios**, un `ADMIN` puede usar el botón de ojo (**Ver como**) sobre
+cualquier usuario `EMPLEADO` o `CLIENTE` activo. La app pasa a mostrar la
+experiencia de ese usuario en la misma pestaña, con un banner que indica el modo
+vista y permite salir en cualquier momento.
+
+- Es **solo lectura**: las peticiones `GET/HEAD/OPTIONS` funcionan con los
+  permisos reales del usuario observado, pero cualquier escritura se bloquea con
+  `403` y código `MODO_VISTA_SOLO_LECTURA`.
+- No se puede iniciar la vista sobre uno mismo, sobre otro `ADMIN` ni sobre un
+  usuario inactivo.
+- La sesión del administrador queda intacta en `localStorage`; el token de vista
+  se guarda solo en `sessionStorage` y dura **30 minutos**.
+- El inicio y el fin de la vista se registran en **Logs** como
+  `VISTA_COMO_INICIADA` y `VISTA_COMO_FINALIZADA`. Las acciones del observado
+  durante la vista no generan auditoría adicional.
+- Si el token de vista vence, la app vuelve automáticamente a la sesión del
+  administrador.
+
+Endpoints:
+
+- `POST /api/usuarios/{id}/vista-como` - inicia la vista (solo ADMIN).
+- `POST /api/auth/vista-como/fin` - finaliza la vista en curso.
 
 ## 🛒 Pedidos online
 

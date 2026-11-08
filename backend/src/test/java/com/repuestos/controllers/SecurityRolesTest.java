@@ -5,6 +5,7 @@ import com.repuestos.dto.PaginaLogsResponse;
 import com.repuestos.dto.PaginaLotesResponse;
 import com.repuestos.dto.PreciosEstadoResponse;
 import com.repuestos.dto.PreciosVistaPreviaResponse;
+import com.repuestos.dto.VistaComoResponse;
 import com.repuestos.models.AccionAuditoria;
 import com.repuestos.models.Cliente;
 import com.repuestos.models.Pago;
@@ -29,6 +30,7 @@ import com.repuestos.services.PreciosMasivosService;
 import com.repuestos.services.ProductoService;
 import com.repuestos.services.UsuarioService;
 import com.repuestos.services.VentaService;
+import com.repuestos.services.VistaComoService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +47,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -102,6 +105,55 @@ class SecurityRolesTest {
     @MockBean private UsuarioRepository usuarioRepository;
     @MockBean private UsuarioService usuarioService;
     @MockBean private VentaService ventaService;
+    @MockBean private VistaComoService vistaComoService;
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void adminPuedeIniciarVistaComo() throws Exception {
+        when(vistaComoService.iniciar(2L)).thenReturn(new VistaComoResponse(
+                "token-vista", "empleado", "Empleado", "EMPLEADO", "",
+                Instant.now().plusSeconds(1800), true));
+
+        mockMvc.perform(post("/api/usuarios/2/vista-como"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("token-vista"))
+                .andExpect(jsonPath("$.soloLectura").value(true));
+
+        verify(vistaComoService).iniciar(2L);
+    }
+
+    @Test
+    @WithMockUser(username = "empleado", roles = "EMPLEADO")
+    void empleadoNoPuedeIniciarVistaComo() throws Exception {
+        mockMvc.perform(post("/api/usuarios/2/vista-como"))
+                .andExpect(status().isForbidden());
+
+        verify(vistaComoService, never()).iniciar(any());
+    }
+
+    @Test
+    @WithMockUser(username = "cliente", roles = "CLIENTE")
+    void clienteNoPuedeIniciarVistaComo() throws Exception {
+        mockMvc.perform(post("/api/usuarios/2/vista-como"))
+                .andExpect(status().isForbidden());
+
+        verify(vistaComoService, never()).iniciar(any());
+    }
+
+    @Test
+    void sinTokenNoSePuedeFinalizarVistaComo() throws Exception {
+        mockMvc.perform(post("/api/auth/vista-como/fin"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "empleado", roles = "EMPLEADO")
+    void autenticadoPuedeFinalizarVistaComo() throws Exception {
+        mockMvc.perform(post("/api/auth/vista-como/fin"))
+                .andExpect(status().isNoContent());
+
+        verify(vistaComoService).finalizar();
+    }
 
     @Test
     void sinTokenSoloPermiteEndpointsPublicos() throws Exception {

@@ -6,6 +6,7 @@ import com.repuestos.models.LogActividad;
 import com.repuestos.models.Usuario;
 import com.repuestos.repositories.LogActividadRepository;
 import com.repuestos.repositories.UsuarioRepository;
+import com.repuestos.security.ImpersonacionInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,6 +65,9 @@ public class AuditoriaService {
     @Transactional
     public void registrar(AccionAuditoria accion, String entidadTipo, Long entidadId,
                           String resumen, Map<String, Object> detalle) {
+        if (enVistaComo()) {
+            return;
+        }
         Actor actor = actorActual();
         if (actor == null) {
             return;
@@ -116,6 +120,9 @@ public class AuditoriaService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registrarAccesoDenegado(String metodo, String ruta) {
+        if (enVistaComo()) {
+            return;
+        }
         Actor actor = actorActual();
         if (actor == null) {
             return;
@@ -232,6 +239,12 @@ public class AuditoriaService {
             // La auditoría nunca debe romper la operación de negocio.
             log.error("No se pudo registrar la auditoría de {}: {}", accion, e.getMessage());
         }
+    }
+
+    private boolean enVistaComo() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.isAuthenticated()
+                && authentication.getDetails() instanceof ImpersonacionInfo;
     }
 
     private Actor actorActual() {

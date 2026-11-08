@@ -35,7 +35,7 @@ const Layout = () => {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [fotoOpen, setFotoOpen] = useState(false);
   const [pendingOrders, setPendingOrders] = useState(0);
-  const { user, logout, isAdmin, isCliente, actualizarFoto } = useAuth();
+  const { user, logout, isAdmin, isCliente, actualizarFoto, enVista } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -60,6 +60,10 @@ const Layout = () => {
   }, [location.pathname]);
 
   const handleLogout = () => {
+    if (enVista) {
+      logout();
+      return;
+    }
     logout();
     navigate('/login');
   };
@@ -81,7 +85,7 @@ const Layout = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" style={{ paddingTop: 'var(--banner-h, 0px)' }}>
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
@@ -91,7 +95,10 @@ const Layout = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside
+        className={`fixed left-0 bottom-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ top: 'var(--banner-h, 0px)' }}
+      >
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
@@ -136,18 +143,22 @@ const Layout = () => {
           {/* User section */}
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setFotoOpen(true)}
-                className="relative group rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                title="Cambiar foto de perfil"
-                aria-label="Cambiar foto de perfil"
-              >
+              {enVista ? (
                 <Avatar fotoUrl={user?.fotoUrl} nombre={user?.nombre} size="md" />
-                <span className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                  <Camera className="w-4 h-4 text-white" aria-hidden="true" />
-                </span>
-              </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setFotoOpen(true)}
+                  className="relative group rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  title="Cambiar foto de perfil"
+                  aria-label="Cambiar foto de perfil"
+                >
+                  <Avatar fotoUrl={user?.fotoUrl} nombre={user?.nombre} size="md" />
+                  <span className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <Camera className="w-4 h-4 text-white" aria-hidden="true" />
+                  </span>
+                </button>
+              )}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
                   {user?.nombre}
@@ -156,19 +167,21 @@ const Layout = () => {
                   {ROLE_LABELS[user?.rol] || user?.rol}
                 </p>
               </div>
-              <button
-                onClick={() => setPasswordOpen(true)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                title="Cambiar contraseña"
-                aria-label="Cambiar contraseña"
-              >
-                <KeyRound className="w-5 h-5" aria-hidden="true" />
-              </button>
+              {!enVista && (
+                <button
+                  onClick={() => setPasswordOpen(true)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  title="Cambiar contraseña"
+                  aria-label="Cambiar contraseña"
+                >
+                  <KeyRound className="w-5 h-5" aria-hidden="true" />
+                </button>
+              )}
               <button
                 onClick={handleLogout}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                title="Cerrar sesión"
-                aria-label="Cerrar sesión"
+                title={enVista ? 'Salir de la vista' : 'Cerrar sesión'}
+                aria-label={enVista ? 'Salir de la vista' : 'Cerrar sesión'}
               >
                 <LogOut className="w-5 h-5" aria-hidden="true" />
               </button>
@@ -180,7 +193,10 @@ const Layout = () => {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 h-16 bg-white border-b border-gray-200 flex items-center px-4 lg:px-6">
+        <header
+          className="sticky z-30 h-16 bg-white border-b border-gray-200 flex items-center px-4 lg:px-6"
+          style={{ top: 'var(--banner-h, 0px)' }}
+        >
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
@@ -211,17 +227,21 @@ const Layout = () => {
         </main>
       </div>
 
-      <CambiarPasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
+      {!enVista && (
+        <>
+          <CambiarPasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
 
-      <SelectorFoto
-        open={fotoOpen}
-        onClose={() => setFotoOpen(false)}
-        nombre={user?.nombre}
-        fotoUrl={user?.fotoUrl}
-        endpoint="/api/auth/foto"
-        compartida={isCliente()}
-        onActualizada={actualizarFoto}
-      />
+          <SelectorFoto
+            open={fotoOpen}
+            onClose={() => setFotoOpen(false)}
+            nombre={user?.nombre}
+            fotoUrl={user?.fotoUrl}
+            endpoint="/api/auth/foto"
+            compartida={isCliente()}
+            onActualizada={actualizarFoto}
+          />
+        </>
+      )}
     </div>
   );
 };

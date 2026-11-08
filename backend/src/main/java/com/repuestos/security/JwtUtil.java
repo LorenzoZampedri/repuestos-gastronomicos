@@ -7,6 +7,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,6 +18,9 @@ public class JwtUtil {
     
     @Value("${JWT_SECRET:default-secret-key}")
     private String secret;
+
+    @Value("${app.vista-como.ttl-minutos:30}")
+    private long vistaTtlMinutos;
     
     private SecretKey getSigningKey() {
         byte[] keyBytes = secret.getBytes();
@@ -56,15 +60,39 @@ public class JwtUtil {
     public String generateToken(UserDetails userDetails, String role) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", role);
-        return createToken(claims, userDetails.getUsername());
+        return createToken(claims, userDetails.getUsername(), 1000 * 60 * 60 * 24); // 24 hours
     }
-    
-    private String createToken(Map<String, Object> claims, String subject) {
+
+    public String generateVistaToken(UserDetails userDetails, String role, String adminUsername) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role);
+        claims.put("imp", adminUsername);
+        claims.put("ro", true);
+        return createToken(claims, userDetails.getUsername(), vistaTtlMinutos * 60 * 1000);
+    }
+
+    public String extractImpersonator(String token) {
+        return extractClaim(token, claims -> claims.get("imp", String.class));
+    }
+
+    public boolean extractReadOnly(String token) {
+        return Boolean.TRUE.equals(extractClaim(token, claims -> claims.get("ro", Boolean.class)));
+    }
+
+    public Instant extractExpirationInstant(String token) {
+        return extractExpiration(token).toInstant();
+    }
+
+    public long getVistaTtlMinutos() {
+        return vistaTtlMinutos;
+    }
+
+    private String createToken(Map<String, Object> claims, String subject, long vigenciaMs) {
         return Jwts.builder()
                 .claims(claims)
                 .subject(subject)
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // 24 hours
+                .expiration(new Date(System.currentTimeMillis() + vigenciaMs))
                 .signWith(getSigningKey())
                 .compact();
     }

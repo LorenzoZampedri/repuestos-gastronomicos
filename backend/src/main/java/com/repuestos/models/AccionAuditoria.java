@@ -50,7 +50,9 @@ public enum AccionAuditoria {
     CONFIG_EDITADA("CONFIGURACION", "Configuración editada"),
     CONFIG_TRANSFERENCIA_EDITADA("CONFIGURACION", "Datos de transferencia editados"),
 
-    ACCESO_DENEGADO("SEGURIDAD", "Acceso denegado");
+    ACCESO_DENEGADO("SEGURIDAD", "Acceso denegado"),
+    VISTA_COMO_INICIADA("SEGURIDAD", "Vista como usuario iniciada"),
+    VISTA_COMO_FINALIZADA("SEGURIDAD", "Vista como usuario finalizada");
 
     private final String modulo;
     private final String etiqueta;

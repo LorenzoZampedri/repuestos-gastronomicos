@@ -10,6 +10,7 @@ import com.repuestos.services.AuditoriaService;
 import com.repuestos.services.FotoPerfilService;
 import com.repuestos.services.NegocioException;
 import com.repuestos.services.UsuarioService;
+import com.repuestos.services.VistaComoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,7 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final AuditoriaService auditoriaService;
     private final FotoPerfilService fotoPerfilService;
+    private final VistaComoService vistaComoService;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
@@ -79,6 +81,12 @@ public class AuthController {
                 "username", registrado.getUsername(),
                 "nombre", registrado.getNombre(),
                 "rol", registrado.getRol().name()));
+    }
+
+    @PostMapping("/vista-como/fin")
+    public ResponseEntity<Void> finalizarVistaComo() {
+        vistaComoService.finalizar();
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/password")

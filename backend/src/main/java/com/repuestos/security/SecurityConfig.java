@@ -47,6 +47,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                 // Autenticado (cualquier rol)
+                .requestMatchers(HttpMethod.POST, "/api/auth/vista-como/fin").authenticated()
                 .requestMatchers(HttpMethod.PUT, "/api/auth/password").authenticated()
                 .requestMatchers(HttpMethod.PUT, "/api/auth/foto").authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/api/auth/foto").authenticated()

@@ -238,7 +238,7 @@ const PublicLayout = ({ children }) => {
   const [fotoOpen, setFotoOpen] = useState(false);
   const { itemCount } = useCart();
   const { getWhatsAppUrl, whatsappNumber } = useCurrency();
-  const { user, logout, homePorRol, isCliente, actualizarFoto } = useAuth();
+  const { user, logout, homePorRol, isCliente, actualizarFoto, enVista } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -250,7 +250,7 @@ const PublicLayout = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col" style={{ paddingTop: 'var(--banner-h, 0px)' }}>
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -297,15 +297,19 @@ const PublicLayout = ({ children }) => {
               </button>
               {user ? (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => setFotoOpen(true)}
-                    className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                    title="Cambiar foto de perfil"
-                    aria-label="Cambiar foto de perfil"
-                  >
+                  {enVista ? (
                     <Avatar fotoUrl={user.fotoUrl} nombre={user.nombre} size="sm" />
-                  </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setFotoOpen(true)}
+                      className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                      title="Cambiar foto de perfil"
+                      aria-label="Cambiar foto de perfil"
+                    >
+                      <Avatar fotoUrl={user.fotoUrl} nombre={user.nombre} size="sm" />
+                    </button>
+                  )}
                   <Link
                     to={homePorRol()}
                     className="hidden sm:flex items-center gap-2 text-sm text-gray-600 hover:text-primary-800"
@@ -315,10 +319,11 @@ const PublicLayout = ({ children }) => {
                   <button
                     onClick={handleLogout}
                     className="flex items-center gap-2 text-sm text-gray-600 hover:text-primary-800"
-                    title="Cerrar sesión"
+                    title={enVista ? 'Salir de la vista' : 'Cerrar sesión'}
                   >
                     <LogOut className="w-4 h-4" aria-hidden="true" />
-                    <span className="hidden sm:inline">Salir</span>
+                    <span className="hidden sm:inline">{enVista ? 'Salir de la vista' : 'Salir'}</span>
+                    <span className="sm:hidden">Salir</span>
                   </button>
                 </>
               ) : (
@@ -370,15 +375,17 @@ const PublicLayout = ({ children }) => {
       />
       <PedidoModal open={pedidoOpen} onClose={() => setPedidoOpen(false)} />
 
-      <SelectorFoto
-        open={fotoOpen}
-        onClose={() => setFotoOpen(false)}
-        nombre={user?.nombre}
-        fotoUrl={user?.fotoUrl}
-        endpoint="/api/auth/foto"
-        compartida={isCliente()}
-        onActualizada={actualizarFoto}
-      />
+      {!enVista && (
+        <SelectorFoto
+          open={fotoOpen}
+          onClose={() => setFotoOpen(false)}
+          nombre={user?.nombre}
+          fotoUrl={user?.fotoUrl}
+          endpoint="/api/auth/foto"
+          compartida={isCliente()}
+          onActualizada={actualizarFoto}
+        />
+      )}
     </div>
   );
 };

@@ -4,6 +4,7 @@ import com.repuestos.dto.*;
 import com.repuestos.models.Usuario;
 import com.repuestos.services.FotoPerfilService;
 import com.repuestos.services.UsuarioService;
+import com.repuestos.services.VistaComoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ public class UsuarioController {
 
     private final UsuarioService usuarioService;
     private final FotoPerfilService fotoPerfilService;
+    private final VistaComoService vistaComoService;
 
     @GetMapping
     public ResponseEntity<List<UsuarioResponse>> listar(
@@ -35,6 +37,11 @@ public class UsuarioController {
     @PostMapping
     public ResponseEntity<UsuarioResponse> crear(@Valid @RequestBody UsuarioCrearRequest request) {
         return ResponseEntity.ok(UsuarioResponse.desde(usuarioService.crear(request)));
+    }
+
+    @PostMapping("/{id}/vista-como")
+    public ResponseEntity<VistaComoResponse> vistaComo(@PathVariable Long id) {
+        return ResponseEntity.ok(vistaComoService.iniciar(id));
     }
 
     @PutMapping("/{id}")
