@@ -5,6 +5,7 @@ import com.repuestos.models.Cliente;
 import com.repuestos.models.Usuario;
 import com.repuestos.repositories.UsuarioRepository;
 import com.repuestos.services.ClienteService;
+import com.repuestos.services.CuentaCorrienteService;
 import com.repuestos.services.NegocioException;
 import com.repuestos.services.UsuarioService;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.when;
 class ClienteControllerTest {
 
     @Mock private ClienteService clienteService;
+    @Mock private CuentaCorrienteService cuentaCorrienteService;
     @Mock private UsuarioService usuarioService;
     @Mock private UsuarioRepository usuarioRepository;
     @InjectMocks private ClienteController clienteController;
@@ -50,10 +52,12 @@ class ClienteControllerTest {
     }
 
     @Test
-    void ajustarSaldoSumarNoVerificaPassword() {
+    void ajustarSaldoSumarNoVerificaPasswordYRegistraAlAdminActual() {
+        Usuario admin = Usuario.builder().id(1L).username("admin").nombre("Admin").build();
         Cliente cliente = Cliente.builder().id(3L).nombre("Cliente").build();
+        when(usuarioService.usuarioActual()).thenReturn(admin);
         when(clienteService.ajustarSaldo(eq(3L), eq(new BigDecimal("80.00")),
-                eq("sumar"), eq(null), eq(null))).thenReturn(cliente);
+                eq("sumar"), eq(null), eq(admin))).thenReturn(cliente);
 
         ClienteResponse resultado = clienteController.ajustarSaldo(3L,
                 ajuste(new BigDecimal("80.00"), "sumar", null, null)).getBody();

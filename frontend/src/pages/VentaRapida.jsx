@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { UMBRAL_DESCUENTO, PCT_DESCUENTO } from '../context/CurrencyContext';
+import CargarDeuda from '../components/CargarDeuda';
 import { formatMoney } from '../utils/format';
 
 const precioUnitarioItem = (item) => {
@@ -27,8 +28,6 @@ const VentaRapida = () => {
   const [procesando, setProcesando] = useState(false);
   const [busquedaCliente, setBusquedaCliente] = useState('');
   const [tipoOperacion, setTipoOperacion] = useState('VENTA'); // VENTA | DEUDA
-  const [montoDeuda, setMontoDeuda] = useState('');
-  const [observacionesDeuda, setObservacionesDeuda] = useState('');
 
   useEffect(() => {
     if ((!isAdmin() || !clienteSeleccionado) && metodoPago === 'CUENTA_CORRIENTE') {
@@ -69,6 +68,10 @@ const VentaRapida = () => {
     c.nombre.toLowerCase().includes(busquedaCliente.toLowerCase()) ||
     c.telefono?.includes(busquedaCliente)
   );
+
+  const clienteSeleccionadoObj = clientes.find(
+    c => String(c.id) === String(clienteSeleccionado)
+  ) || null;
 
   const agregarAlCarrito = (producto) => {
     const existente = carrito.find(item => item.producto.id === producto.id);
@@ -116,37 +119,6 @@ const VentaRapida = () => {
   );
 
     const handleCompra = async () => {
-    if (tipoOperacion === 'DEUDA') {
-      if (!isAdmin()) {
-        toast.error('Solo un administrador puede cargar deudas');
-        setTipoOperacion('VENTA');
-        return;
-      }
-      if (!clienteSeleccionado) {
-        toast.error('Seleccioná un cliente para cargar la deuda');
-        return;
-      }
-      const monto = parseFloat(montoDeuda);
-      if (!monto || monto <= 0) {
-        toast.error('Ingresá un monto válido');
-        return;
-      }
-      setProcesando(true);
-      try {
-        await api.patch(`/api/clientes/${clienteSeleccionado}/saldo`, {
-          monto,
-          tipo: 'sumar'
-        });
-        toast.success('Deuda registrada exitosamente');
-        navigate('/cuentas-corrientes');
-      } catch (error) {
-        toast.error(error.response?.data?.message || 'Error al registrar deuda');
-      } finally {
-        setProcesando(false);
-      }
-      return;
-    }
-
     if (carrito.length === 0) {
       toast.error('El carrito está vacío');
       return;
@@ -169,7 +141,7 @@ const VentaRapida = () => {
       const payload = {
         clienteId: clienteSeleccionado ? parseInt(clienteSeleccionado) : null,
         detalles,
-        observaciones: observacionesDeuda || '',
+        observaciones: '',
         metodoPago
       };
 
@@ -271,65 +243,17 @@ const VentaRapida = () => {
         )}
 
         {tipoOperacion === 'DEUDA' && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="card max-w-md w-full">
-              <h2 className="text-lg font-semibold mb-4">Cargar deuda a cliente</h2>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="cliente-deuda" className="label">Cliente</label>
-                  <input
-                    type="text"
-                    placeholder="Buscar cliente..."
-                    aria-label="Buscar cliente"
-                    value={busquedaCliente}
-                    onChange={(e) => setBusquedaCliente(e.target.value)}
-                    className="input mb-2"
-                  />
-                  <select
-                    id="cliente-deuda"
-                    value={clienteSeleccionado}
-                    onChange={(e) => setClienteSeleccionado(e.target.value)}
-                    className="input"
-                  >
-                    <option value="">Seleccionar cliente</option>
-                    {clientesFiltrados.map(cliente => (
-                      <option key={cliente.id} value={cliente.id}>
-                        {cliente.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="monto-deuda" className="label">Monto de la deuda</label>
-                  <input
-                    id="monto-deuda"
-                    type="number"
-                    value={montoDeuda}
-                    onChange={(e) => setMontoDeuda(e.target.value)}
-                    placeholder="0.00"
-                    min="0.01"
-                    step="0.01"
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="obs-deuda" className="label">Observaciones</label>
-                  <textarea
-                    id="obs-deuda"
-                    value={observacionesDeuda}
-                    onChange={(e) => setObservacionesDeuda(e.target.value)}
-                    placeholder="Motivo de la deuda..."
-                    className="input"
-                    rows="3"
-                  />
-                </div>
-              </div>
-            </div>
+          <div className="flex-1 overflow-y-auto">
+            <CargarDeuda
+              clienteInicial={clienteSeleccionadoObj}
+              onCargada={fetchClientes}
+              onCancelar={() => setTipoOperacion('VENTA')}
+            />
           </div>
         )}
       </div>
 
-      {/* Right: Cart */}
+      {tipoOperacion === 'VENTA' && (
       <div className="w-full lg:w-96 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col">
         {/* Cart Header */}
         <div className="p-4 border-b border-gray-200">
@@ -478,6 +402,7 @@ const VentaRapida = () => {
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 };

@@ -1,13 +1,19 @@
 package com.repuestos.controllers;
 
+import com.repuestos.dto.CargarDeudaRequest;
+import com.repuestos.dto.CargarDeudaResponse;
+import com.repuestos.dto.CargoResponse;
 import com.repuestos.dto.ClienteResponse;
+import com.repuestos.dto.ComprasClienteResponse;
 import com.repuestos.dto.PagoResponse;
 import com.repuestos.models.Cliente;
 import com.repuestos.models.Usuario;
 import com.repuestos.repositories.UsuarioRepository;
 import com.repuestos.services.ClienteService;
+import com.repuestos.services.CuentaCorrienteService;
 import com.repuestos.services.FotoPerfilService;
 import com.repuestos.services.UsuarioService;
+import jakarta.validation.Valid;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +31,7 @@ import java.util.Set;
 public class ClienteController {
 
     private final ClienteService clienteService;
+    private final CuentaCorrienteService cuentaCorrienteService;
     private final UsuarioService usuarioService;
     private final FotoPerfilService fotoPerfilService;
     private final UsuarioRepository usuarioRepository;
@@ -101,12 +108,31 @@ public class ClienteController {
         return ResponseEntity.ok(ClienteResponse.desde(actualizado, usuarioService.esAdminActual(), cuentaVinculada));
     }
 
+    @PostMapping("/cargar-deuda")
+    public ResponseEntity<CargarDeudaResponse> cargarDeuda(
+            @Valid @RequestBody CargarDeudaRequest request) {
+        return ResponseEntity.ok(cuentaCorrienteService.cargarDeuda(request));
+    }
+
+    @GetMapping("/{id}/cargos")
+    public ResponseEntity<List<CargoResponse>> cargosPorCliente(@PathVariable Long id) {
+        return ResponseEntity.ok(cuentaCorrienteService.cargosDeCliente(id));
+    }
+
+    @GetMapping("/{id}/compras")
+    public ResponseEntity<ComprasClienteResponse> comprasPorCliente(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "20") int limite) {
+        return ResponseEntity.ok(cuentaCorrienteService.comprasDeCliente(
+                id, limite, usuarioService.esAdminActual()));
+    }
+
     @PatchMapping("/{id}/saldo")
     public ResponseEntity<ClienteResponse> ajustarSaldo(@PathVariable Long id,
                                                          @RequestBody AjustarSaldoRequest request) {
         Usuario usuario = "restar".equals(request.getTipo())
                 ? usuarioService.verificarPasswordActual(request.getPassword())
-                : null;
+                : usuarioService.usuarioActual();
         Cliente cliente = clienteService.ajustarSaldo(
                 id, request.getMonto(), request.getTipo(), request.getMetodoPago(), usuario);
         boolean cuentaVinculada = usuarioRepository.existsByClienteId(id);

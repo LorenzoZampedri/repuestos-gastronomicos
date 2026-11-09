@@ -21,6 +21,7 @@ import com.repuestos.services.AuditoriaService;
 import com.repuestos.services.AvatarStorageService;
 import com.repuestos.services.ClienteService;
 import com.repuestos.services.ConfiguracionService;
+import com.repuestos.services.CuentaCorrienteService;
 import com.repuestos.services.DashboardService;
 import com.repuestos.services.FotoPerfilService;
 import com.repuestos.services.ImagenStorageService;
@@ -94,6 +95,7 @@ class SecurityRolesTest {
     @MockBean private JwtUtil jwtUtil;
     @MockBean private CategoriaRepository categoriaRepository;
     @MockBean private ClienteService clienteService;
+    @MockBean private CuentaCorrienteService cuentaCorrienteService;
     @MockBean private ConfiguracionService configuracionService;
     @MockBean private DashboardService dashboardService;
     @MockBean private FotoPerfilService fotoPerfilService;
@@ -274,6 +276,67 @@ class SecurityRolesTest {
 
         verify(auditoriaService, atLeastOnce())
                 .registrarAccesoDenegado(anyString(), anyString());
+    }
+
+    @Test
+    void sinTokenNoSePuedeCargarDeudaNiConsultarCargosOCompras() throws Exception {
+        mockMvc.perform(post("/api/clientes/cargar-deuda")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clienteId\":1,\"monto\":10,\"motivo\":\"Compra\"}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/clientes/1/cargos")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/clientes/1/compras")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "empleado", roles = "EMPLEADO")
+    void empleadoNoPuedeCargarDeudaNiConsultarCargosPeroSiCompras() throws Exception {
+        mockMvc.perform(post("/api/clientes/cargar-deuda")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clienteId\":1,\"monto\":10,\"motivo\":\"Compra\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/clientes/1/cargos")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/clientes/1/compras")).andExpect(status().isOk());
+
+        verify(cuentaCorrienteService, never()).cargarDeuda(any());
+        verify(cuentaCorrienteService, never()).cargosDeCliente(any());
+        verify(cuentaCorrienteService).comprasDeCliente(eq(1L), eq(20), eq(false));
+        verify(auditoriaService, atLeastOnce())
+                .registrarAccesoDenegado(anyString(), anyString());
+    }
+
+    @Test
+    @WithMockUser(username = "cliente", roles = "CLIENTE")
+    void clienteNoPuedeUsarEndpointsDeCuentaCorriente() throws Exception {
+        mockMvc.perform(post("/api/clientes/cargar-deuda")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clienteId\":1,\"monto\":10,\"motivo\":\"Compra\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/clientes/1/cargos")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/clientes/1/compras")).andExpect(status().isForbidden());
+        verify(auditoriaService, atLeastOnce())
+                .registrarAccesoDenegado(anyString(), anyString());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void adminPuedeCargarDeudaConsultarCargosYCompras() throws Exception {
+        when(cuentaCorrienteService.cargarDeuda(any())).thenReturn(null);
+        when(usuarioService.esAdminActual()).thenReturn(true);
+
+        mockMvc.perform(post("/api/clientes/cargar-deuda")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clienteId\":1,\"monto\":10,\"motivo\":\"Compra\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/clientes/1/cargos")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/clientes/1/compras?limite=50"))
+                .andExpect(status().isOk());
+
+        verify(cuentaCorrienteService).cargarDeuda(any());
+        verify(cuentaCorrienteService).cargosDeCliente(1L);
+        verify(cuentaCorrienteService).comprasDeCliente(1L, 50, true);
+        mockMvc.perform(delete("/api/clientes/1")).andExpect(status().isOk());
+        verify(clienteService).eliminar(1L);
     }
 
     @Test

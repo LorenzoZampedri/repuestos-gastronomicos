@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @DataJpaTest
-@Import({VentaService.class, ClienteService.class, ProductoService.class, ConfiguracionService.class, AuditoriaService.class, FotoPerfilService.class, AvatarStorageService.class})
+@Import({VentaService.class, ClienteService.class, CargoCuentaCorrienteService.class, ProductoService.class, ConfiguracionService.class, AuditoriaService.class, FotoPerfilService.class, AvatarStorageService.class})
 class ConciliacionCuentaCorrienteTest {
 
     private static final AtomicInteger SEQ = new AtomicInteger();
@@ -108,7 +108,7 @@ class ConciliacionCuentaCorrienteTest {
     }
 
     private void sumarDeudaManual(String monto) {
-        clienteService.ajustarSaldo(cliente.getId(), new BigDecimal(monto), "sumar", null);
+        clienteService.ajustarSaldo(cliente.getId(), new BigDecimal(monto), "sumar", null, usuario);
         deudaManual = deudaManual.add(new BigDecimal(monto));
         flushAndClear();
     }

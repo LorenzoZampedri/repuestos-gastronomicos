@@ -193,6 +193,12 @@ class VistaComoIntegrationTest {
                         .content("{\"items\":[],\"telefono\":\"1155551234\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("MODO_VISTA_SOLO_LECTURA"));
+        mockMvc.perform(post("/api/clientes/cargar-deuda")
+                        .header("Authorization", "Bearer " + empleadoToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clienteId\":1,\"monto\":10,\"motivo\":\"Compra\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("MODO_VISTA_SOLO_LECTURA"));
 
         mockMvc.perform(post("/api/auth/vista-como/fin")
                         .header("Authorization", "Bearer " + empleadoToken))

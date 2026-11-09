@@ -34,6 +34,7 @@ public class ClienteService {
     private final VentaService ventaService;
     private final AuditoriaService auditoriaService;
     private final FotoPerfilService fotoPerfilService;
+    private final CargoCuentaCorrienteService cargoCuentaCorrienteService;
 
     @Transactional
     public Cliente asegurarClienteParaUsuario(Usuario usuario) {
@@ -137,6 +138,11 @@ public class ClienteService {
     
     @Transactional
     public Cliente guardar(Cliente cliente) {
+        return guardar(cliente, null);
+    }
+
+    @Transactional
+    public Cliente guardar(Cliente cliente, String origen) {
         Cliente guardado = clienteRepository.save(cliente);
         Map<String, Object> detalle = new LinkedHashMap<>();
         detalle.put("clienteId", guardado.getId());
@@ -144,6 +150,9 @@ public class ClienteService {
         detalle.put("telefono", guardado.getTelefono());
         detalle.put("email", guardado.getEmail());
         detalle.put("saldoCorriente", guardado.getSaldoCorriente());
+        if (origen != null) {
+            detalle.put("origen", origen);
+        }
         auditoriaService.registrar(AccionAuditoria.CLIENTE_CREADO, "Cliente",
                 guardado.getId(),
                 "Creó el cliente '" + guardado.getNombre() + "'",
@@ -211,22 +220,23 @@ public class ClienteService {
             throw new IllegalArgumentException("El monto debe ser mayor a cero");
         }
 
+        if ("sumar".equals(tipo)) {
+            cargoCuentaCorrienteService.registrar(id, monto,
+                    "Ajuste manual de saldo", usuario, false);
+            return buscarPorId(id);
+        }
+        if (!"restar".equals(tipo)) {
+            throw new IllegalArgumentException("Tipo de ajuste inválido");
+        }
+
         BigDecimal saldoActual = cliente.getSaldoCorriente() == null
                 ? BigDecimal.ZERO
                 : cliente.getSaldoCorriente();
 
-        Cliente resultado;
-        if ("sumar".equals(tipo)) {
-            cliente.setSaldoCorriente(saldoActual.add(monto));
-            resultado = clienteRepository.save(cliente);
-        } else if ("restar".equals(tipo)) {
-            // El pago se aplica a las ventas abiertas del cliente (más antiguas primero)
-            // y descuenta el saldoCorriente exactamente una vez.
-            ventaService.registrarPagoCuentaCorriente(id, monto, metodoPago, usuario);
-            resultado = buscarPorId(id);
-        } else {
-            throw new IllegalArgumentException("Tipo de ajuste inválido");
-        }
+        // El pago se aplica a las ventas abiertas del cliente (más antiguas primero)
+        // y descuenta el saldoCorriente exactamente una vez.
+        ventaService.registrarPagoCuentaCorriente(id, monto, metodoPago, usuario);
+        Cliente resultado = buscarPorId(id);
 
         BigDecimal saldoDespues = resultado.getSaldoCorriente() == null
                 ? BigDecimal.ZERO
@@ -239,11 +249,8 @@ public class ClienteService {
         detalle.put("metodoPago", metodoPago);
         detalle.put("saldoAntes", saldoActual);
         detalle.put("saldoDespues", saldoDespues);
-        String resumen = "sumar".equals(tipo)
-                ? "Aumentó el saldo del cliente '" + resultado.getNombre() + "' en $"
-                        + formatearMonto(monto)
-                : "Registró un pago de $" + formatearMonto(monto)
-                        + " a la cuenta del cliente '" + resultado.getNombre() + "'";
+        String resumen = "Registró un pago de $" + formatearMonto(monto)
+                + " a la cuenta del cliente '" + resultado.getNombre() + "'";
         auditoriaService.registrar(AccionAuditoria.CLIENTE_SALDO_AJUSTADO, "Cliente",
                 resultado.getId(), resumen, detalle);
         return resultado;

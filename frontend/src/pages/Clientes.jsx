@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, Plus, Edit2, Trash2, Users, Phone, Mail, DollarSign, Camera, Receipt } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Search, Plus, Edit2, Trash2, Users, Phone, Mail, DollarSign, Camera, Receipt, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +11,7 @@ import { formatMoney } from '../utils/format';
 
 const Clientes = () => {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -142,6 +143,14 @@ const Clientes = () => {
                 </div>
               </div>
               <div className="flex gap-1">
+                <button
+                  onClick={() => navigate(`/clientes/${cliente.id}/ficha`)}
+                  className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  aria-label={`Ver ficha de ${cliente.nombre}`}
+                  title="Ver ficha"
+                >
+                  <Eye className="w-4 h-4" aria-hidden="true" />
+                </button>
                 <button
                   onClick={() => setClienteFoto(cliente)}
                   className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"

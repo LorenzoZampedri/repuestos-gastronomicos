@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Slf4j
@@ -26,9 +27,16 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(NegocioException.class)
-    public ResponseEntity<Map<String, String>> negocio(NegocioException ex) {
-        return ResponseEntity.status(ex.getStatus())
-                .body(Map.of("message", ex.getMessage()));
+    public ResponseEntity<Map<String, Object>> negocio(NegocioException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", ex.getMessage());
+        if (ex.getCode() != null) {
+            body.put("code", ex.getCode());
+        }
+        if (ex.getDatos() != null) {
+            body.putAll(ex.getDatos());
+        }
+        return ResponseEntity.status(ex.getStatus()).body(body);
     }
 
     @ExceptionHandler(ImagenInvalidaException.class)

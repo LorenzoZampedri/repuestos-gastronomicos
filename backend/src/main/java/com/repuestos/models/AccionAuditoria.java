@@ -41,6 +41,7 @@ public enum AccionAuditoria {
     VENTA_ANULADA("VENTAS", "Venta anulada"),
     PAGO_REGISTRADO("VENTAS", "Pago registrado"),
     PAGO_CUENTA_CORRIENTE("VENTAS", "Pago a cuenta corriente"),
+    DEUDA_CARGADA("VENTAS", "Deuda cargada a cuenta corriente"),
 
     PEDIDO_CREADO("PEDIDOS", "Pedido creado"),
     PEDIDO_CANCELADO("PEDIDOS", "Pedido cancelado"),

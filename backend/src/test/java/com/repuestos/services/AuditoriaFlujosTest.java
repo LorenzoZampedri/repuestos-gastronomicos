@@ -38,9 +38,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
-@Import({VentaService.class, ClienteService.class, ProductoService.class,
-        ConfiguracionService.class, PedidoService.class, AuditoriaService.class,
-        FotoPerfilService.class, AvatarStorageService.class})
+@Import({VentaService.class, ClienteService.class, CargoCuentaCorrienteService.class,
+        ProductoService.class, ConfiguracionService.class, PedidoService.class,
+        AuditoriaService.class, FotoPerfilService.class, AvatarStorageService.class})
 class AuditoriaFlujosTest {
 
     @Autowired private VentaService ventaService;
