@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, DollarSign, AlertCircle, CheckCircle, Wallet } from 'lucide-react';
+import { Search, DollarSign, AlertCircle, CheckCircle, Wallet, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import Modal from '../components/Modal';
+import CargarDeuda from '../components/CargarDeuda';
 import { formatMoney } from '../utils/format';
 
 const ESTADO_VENTA_STYLE = {
@@ -26,6 +28,8 @@ const CuentasCorrientes = () => {
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [ventas, setVentas] = useState([]);
   const [pagos, setPagos] = useState([]);
+  const [cargos, setCargos] = useState([]);
+  const [cargarDeudaAbierto, setCargarDeudaAbierto] = useState(false);
   const [ajustandoSaldo, setAjustandoSaldo] = useState(null);
   const [montoAjuste, setMontoAjuste] = useState('');
   const [passwordAjuste, setPasswordAjuste] = useState('');
@@ -77,12 +81,22 @@ const CuentasCorrientes = () => {
     }
   };
 
+  const fetchCargosCliente = async (clienteId) => {
+    try {
+      const response = await api.get(`/api/clientes/${clienteId}/cargos`);
+      setCargos(response.data);
+    } catch (error) {
+      toast.error('Error al cargar cargos manuales');
+    }
+  };
+
   useEffect(() => {
     const refrescarAlVolver = () => {
       fetchClientesConDeuda();
       if (clienteSeleccionado) {
         fetchVentasCliente(clienteSeleccionado.id);
         fetchPagosCliente(clienteSeleccionado.id);
+        fetchCargosCliente(clienteSeleccionado.id);
       }
     };
 
@@ -94,6 +108,7 @@ const CuentasCorrientes = () => {
     setClienteSeleccionado(cliente);
     fetchVentasCliente(cliente.id);
     fetchPagosCliente(cliente.id);
+    fetchCargosCliente(cliente.id);
   };
 
   const handleRegistrarPago = async (clienteId) => {
@@ -122,6 +137,7 @@ const CuentasCorrientes = () => {
         if (updated) setClienteSeleccionado(updated);
         fetchVentasCliente(clienteId);
         fetchPagosCliente(clienteId);
+        fetchCargosCliente(clienteId);
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Error al ajustar saldo');
@@ -341,6 +357,14 @@ const CuentasCorrientes = () => {
                   }`}>
                     {formatMoney(Math.abs(saldoSeleccionado), 'ARS')}
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => setCargarDeudaAbierto(true)}
+                    className="mt-2 inline-flex items-center gap-1 text-sm text-primary-700 hover:text-primary-900"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Cargar deuda
+                  </button>
                   {saldoSeleccionado > 0 && <button
                     onClick={() => {
                       setAjustandoSaldo(clienteSeleccionado.id);
@@ -474,6 +498,38 @@ const CuentasCorrientes = () => {
                   </p>
                 )}
               </div>
+
+              <h4 className="font-medium text-gray-700 mb-3 mt-6">Cargos manuales</h4>
+              <div className="space-y-3">
+                {cargos.map((cargo) => (
+                  <div key={cargo.id} className="p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-gray-900">{cargo.motivo}</p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(cargo.fecha).toLocaleDateString('es-AR')}
+                          {cargo.usuario?.nombre || cargo.usuario?.username
+                            ? ` · ${cargo.usuario.nombre || cargo.usuario.username}`
+                            : ''}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Saldo antes {formatMoney(cargo.saldoAntes, 'ARS')}
+                          {' · '}
+                          Saldo después {formatMoney(cargo.saldoDespues, 'ARS')}
+                        </p>
+                      </div>
+                      <p className="font-semibold text-primary-800 whitespace-nowrap">
+                        +{formatMoney(cargo.monto, 'ARS')}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {cargos.length === 0 && (
+                  <p className="text-center text-gray-500 py-4">
+                    No hay cargos manuales
+                  </p>
+                )}
+              </div>
             </div>
           ) : (
             <div className="card flex items-center justify-center h-64">
@@ -485,6 +541,32 @@ const CuentasCorrientes = () => {
           )}
         </div>
       </div>
+
+      <Modal
+        open={cargarDeudaAbierto}
+        onClose={() => setCargarDeudaAbierto(false)}
+        labelledBy="cargar-deuda-cuenta-titulo"
+      >
+        <div className="p-4">
+          <h2 id="cargar-deuda-cuenta-titulo" className="sr-only">Cargar deuda</h2>
+          <CargarDeuda
+            clienteInicial={clienteSeleccionado}
+            onCancelar={() => setCargarDeudaAbierto(false)}
+            onCargada={(data) => {
+              setCargarDeudaAbierto(false);
+              const clienteActualizado = data?.cliente;
+              if (clienteActualizado) setClienteSeleccionado(clienteActualizado);
+              fetchClientesConDeuda();
+              const clienteId = clienteActualizado?.id || clienteSeleccionado?.id;
+              if (clienteId) {
+                fetchVentasCliente(clienteId);
+                fetchPagosCliente(clienteId);
+                fetchCargosCliente(clienteId);
+              }
+            }}
+          />
+        </div>
+      </Modal>
     </div>
   );
 };

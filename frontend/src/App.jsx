@@ -21,6 +21,7 @@ import Ventas from './pages/Ventas';
 import VentaRapida from './pages/VentaRapida';
 import Clientes from './pages/Clientes';
 import ClienteForm from './pages/ClienteForm';
+import FichaCliente from './pages/FichaCliente';
 import CuentasCorrientes from './pages/CuentasCorrientes';
 import Catalogo from './pages/Catalogo';
 import Configuracion from './pages/Configuracion';
@@ -160,6 +161,7 @@ function App() {
             <Route path="ventas/nueva" element={<VentaRapida />} />
             <Route path="clientes" element={<Clientes />} />
             <Route path="clientes/nuevo" element={<ClienteForm />} />
+            <Route path="clientes/:id/ficha" element={<FichaCliente />} />
             <Route path="clientes/:id" element={<ClienteForm />} />
             <Route path="cuentas-corrientes" element={
               <ProtectedRoute allowedRoles={['ADMIN']}>

@@ -25,7 +25,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @DataJpaTest
-@Import({VentaService.class, ClienteService.class, ProductoService.class, ConfiguracionService.class, AuditoriaService.class, FotoPerfilService.class, AvatarStorageService.class})
+@Import({VentaService.class, ClienteService.class, CargoCuentaCorrienteService.class, ProductoService.class, ConfiguracionService.class, AuditoriaService.class, FotoPerfilService.class, AvatarStorageService.class})
 class PagoCuentaCorrienteTest {
 
     @Autowired private VentaService ventaService;
@@ -276,7 +276,8 @@ class PagoCuentaCorrienteTest {
     @Test
     void ajustarSaldoSumarNoCambia() {
         entityManager.clear();
-        Cliente resultado = clienteService.ajustarSaldo(cliente.getId(), new BigDecimal("25.00"), "sumar", null);
+        Cliente resultado = clienteService.ajustarSaldo(
+                cliente.getId(), new BigDecimal("25.00"), "sumar", null, usuario);
         assertEquals(0, new BigDecimal("25.00").compareTo(resultado.getSaldoCorriente()));
     }
 

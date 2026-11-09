@@ -42,8 +42,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@Import({ClienteService.class, VentaService.class, ProductoService.class,
-        ConfiguracionService.class, AuditoriaService.class,
+@Import({ClienteService.class, CargoCuentaCorrienteService.class, VentaService.class,
+        ProductoService.class, ConfiguracionService.class, AuditoriaService.class,
         FotoPerfilService.class, AvatarStorageService.class})
 class FotoPerfilServiceTest {
 

@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
-@Import({VentaService.class, ClienteService.class, ProductoService.class, ConfiguracionService.class, AuditoriaService.class, FotoPerfilService.class, AvatarStorageService.class})
+@Import({VentaService.class, ClienteService.class, CargoCuentaCorrienteService.class, ProductoService.class, ConfiguracionService.class, AuditoriaService.class, FotoPerfilService.class, AvatarStorageService.class})
 class OrdenClientesTest {
 
     @Autowired private ClienteService clienteService;
@@ -123,7 +123,7 @@ class OrdenClientesTest {
     void todasLasConsultasDeClientesDelRepositorioDefinenOrdenExplicito() {
         for (Method metodo : ClienteRepository.class.getDeclaredMethods()) {
             Query query = metodo.getAnnotation(Query.class);
-            if (query == null) {
+            if (query == null || metodo.getName().equals("findByIdParaActualizar")) {
                 continue;
             }
             assertTrue(query.value().toLowerCase().contains("order by"),

@@ -10,7 +10,7 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 
 - **Inventario en tiempo real** - Control de stock preciso
 - **Venta rápida** - Flujo optimizado para mostrador
-- **Cuentas corrientes** - Gestión de deudas y pagos
+- **Cuentas corrientes** - Gestión de deudas y pagos, con carga manual auditada y ficha de cliente
 - **Catálogo público** - Web para clientes
 - **Pedidos online** - Carrito, seguimiento y conversión a venta
 - **Precios masivos y cotización** - Actualización en dólares con vista previa, lotes históricos, reversión y sincronización automática de pesos (ARS)
@@ -25,7 +25,7 @@ Plataforma web para gestión de inventario, ventas y cuentas corrientes, con cat
 | Rol | Alcance |
 |-----|---------|
 | **ADMIN** | Acceso completo: dashboard, productos, precios masivos, ventas, clientes, cuentas corrientes, usuarios, configuración y logs de auditoría. |
-| **EMPLEADO** | Productos (crear/editar), ventas con efectivo/tarjeta/transferencia/otro y clientes (crear/editar). No puede vender a cuenta corriente (solo ADMIN), eliminar productos/clientes, anular ventas, ver cuentas corrientes, administrar usuarios ni consultar logs. |
+| **EMPLEADO** | Productos (crear/editar), ventas con efectivo/tarjeta/transferencia/otro y clientes (crear/editar). Puede consultar la ficha y las compras pagadas de un cliente, pero no ve saldos ni cargos manuales. No puede vender a cuenta corriente, cargar deuda (solo ADMIN), eliminar productos/clientes, anular ventas, ver cuentas corrientes, administrar usuarios ni consultar logs. |
 | **CLIENTE** | Catálogo público, carrito, pedidos online y consulta por WhatsApp. Puede registrarse desde `/registro` y hace seguimiento en `/mis-pedidos`. |
 
 Los usuarios inactivos no pueden iniciar sesión. Un administrador no puede
@@ -231,6 +231,34 @@ usuario no es ADMIN, el método vuelve a `EFECTIVO`.
 
 Los pedidos online **nunca** se aprueban a cuenta corriente: el cliente solo
 puede elegir efectivo, tarjeta o transferencia y la aprobación usa ese método.
+
+### Carga de deuda y ficha de cliente
+
+Un `ADMIN` puede cargar deuda manualmente desde **Cuentas corrientes** o desde la
+ficha del cliente. El formulario permite elegir un cliente existente o crear uno
+nuevo en la misma operación. Se valida el monto (positivo, hasta dos decimales y
+sin superar el saldo máximo permitido), el motivo (3–300 caracteres) y los datos
+del cliente nuevo, incluyendo duplicados por nombre, teléfono, email o CUIT.
+
+Cada carga genera un cargo inalterable con el saldo antes y después, el usuario
+que la autorizó y la fecha, y se registra en **Logs** como `DEUDA_CARGADA` en el
+módulo `VENTAS`. Una carga idéntica repetida dentro de 30 segundos responde
+`409` con `DEUDA_DUPLICADA`; un cliente duplicado responde `CLIENTE_DUPLICADO` y
+uno inactivo `CLIENTE_INACTIVO`. La operación usa bloqueo pesimista por cliente y
+es transaccional, incluso cuando crea el cliente y la deuda juntos.
+
+La ficha del cliente (`/clientes/{id}/ficha`) muestra la foto, los datos de
+contacto, el historial de compras agrupado por estado y, solo para `ADMIN`, el
+saldo, los pagos, los cargos manuales y el botón **Cargar deuda**. Un `EMPLEADO`
+solo ve las compras `PAGADA`; los saldos y los cargos nunca viajan en sus
+respuestas. Un `CLIENTE` no puede acceder a estos endpoints.
+
+Endpoints:
+
+- `POST /api/clientes/cargar-deuda` - carga deuda existente o crea cliente + deuda (solo ADMIN).
+- `GET /api/clientes/{id}/cargos` - cargos manuales del cliente (solo ADMIN).
+- `GET /api/clientes/{id}/compras?limite=100` - compras visibles según el rol.
+- `PATCH /api/clientes/{id}/saldo` con `{"tipo":"sumar","monto":1000}` - suma deuda y genera cargo (solo ADMIN); `"restar"` registra un pago y requiere contraseña.
 
 ### Permisos de los endpoints de pedidos
 
