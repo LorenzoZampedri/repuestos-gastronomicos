@@ -2,6 +2,25 @@ export const ID_ANONIMA = 'anonima';
 
 const ETIQUETA_ANONIMA = 'Venta anónima (sin cliente)';
 
+const ID_VALIDO = /^\d+$/;
+const MAX_NOMBRE_URL = 100;
+
+const leerSeleccion = (params, idParam, nombreParam) => {
+  const id = params.get(idParam);
+  if (!id || !ID_VALIDO.test(id)) return {};
+  const nombre = params.get(nombreParam);
+  return { [id]: typeof nombre === 'string' ? nombre.slice(0, MAX_NOMBRE_URL) : '' };
+};
+
+export const leerSeleccionDesdeUrl = (search = '', hash = '') => {
+  if (/^#venta-\d+$/.test(hash)) return { clientes: {}, usuarios: {} };
+  const params = new URLSearchParams(search);
+  return {
+    clientes: leerSeleccion(params, 'cliente', 'clienteNombre'),
+    usuarios: leerSeleccion(params, 'usuario', 'usuarioNombre'),
+  };
+};
+
 export const normalizarTexto = (texto) => {
   if (texto == null) return '';
   return String(texto)

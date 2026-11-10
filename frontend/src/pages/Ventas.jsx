@@ -11,6 +11,7 @@ import {
   construirOpcionesClientes,
   construirOpcionesUsuarios,
   filtrarVentas,
+  leerSeleccionDesdeUrl,
   sumarTotales,
 } from '../utils/ventasFiltros';
 
@@ -23,16 +24,8 @@ const leerFiltroInicial = () => {
   return FILTROS_VALIDOS.includes(filtro) ? filtro : 'mes';
 };
 
-const leerSeleccionInicial = () => {
-  if (/^#venta-\d+$/.test(window.location.hash)) return { clientes: {}, usuarios: {} };
-  const params = new URLSearchParams(window.location.search);
-  const cliente = params.get('cliente');
-  const usuario = params.get('usuario');
-  return {
-    clientes: cliente ? { [cliente]: '' } : {},
-    usuarios: usuario ? { [usuario]: '' } : {},
-  };
-};
+const leerSeleccionInicial = () =>
+  leerSeleccionDesdeUrl(window.location.search, window.location.hash);
 
 const Ventas = () => {
   const { isAdmin } = useAuth();
@@ -55,7 +48,7 @@ const Ventas = () => {
     aplicarFiltro(filtroInicial);
 
     const params = new URLSearchParams(window.location.search);
-    const parametrosIniciales = ['filtro', 'cliente', 'usuario'];
+    const parametrosIniciales = ['filtro', 'cliente', 'clienteNombre', 'usuario', 'usuarioNombre'];
     if (parametrosIniciales.some((clave) => params.has(clave))) {
       parametrosIniciales.forEach((clave) => params.delete(clave));
       const search = params.toString();
@@ -78,7 +71,6 @@ const Ventas = () => {
       let cambio = false;
       const siguiente = { ...seleccion };
       for (const [id, nombre] of Object.entries(seleccion)) {
-        if (nombre) continue;
         const venta = ventas.find((v) =>
           tipo === 'cliente'
             ? String(v.cliente?.id) === id
@@ -86,14 +78,18 @@ const Ventas = () => {
         );
         if (venta) {
           const dato = tipo === 'cliente' ? venta.cliente : venta.usuario;
-          siguiente[id] =
+          const etiqueta =
             dato?.nombre ||
             dato?.username ||
             `${tipo === 'cliente' ? 'Cliente' : 'Personal'} #${id}`;
-        } else {
+          if (etiqueta !== nombre) {
+            siguiente[id] = etiqueta;
+            cambio = true;
+          }
+        } else if (!nombre) {
           delete siguiente[id];
+          cambio = true;
         }
-        cambio = true;
       }
       return cambio ? siguiente : seleccion;
     };
