@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Package } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { validarUsername } from '../utils/usuarios';
 
 const Registro = () => {
   const [form, setForm] = useState({
@@ -14,15 +15,38 @@ const Registro = () => {
     confirmarPassword: '',
   });
   const [loading, setLoading] = useState(false);
+  const [errores, setErrores] = useState({});
+  const usernameRef = useRef(null);
+  const emailRef = useRef(null);
   const { login, homePorRol } = useAuth();
   const navigate = useNavigate();
 
+  const enfocarCampo = (campo) => {
+    const ref = campo === 'username' ? usernameRef : campo === 'email' ? emailRef : null;
+    requestAnimationFrame(() => ref?.current?.focus());
+  };
+
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+    if (errores[name]) {
+      setErrores((previos) => {
+        const siguientes = { ...previos };
+        delete siguientes[name];
+        return siguientes;
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const errorUsername = validarUsername(form.username);
+    if (errorUsername) {
+      setErrores({ username: errorUsername });
+      enfocarCampo('username');
+      return;
+    }
 
     if (form.password.length < 8) {
       toast.error('La contraseña debe tener al menos 8 caracteres');
@@ -33,6 +57,7 @@ const Registro = () => {
       return;
     }
 
+    setErrores({});
     setLoading(true);
     try {
       const username = form.username.trim();
@@ -46,7 +71,13 @@ const Registro = () => {
       toast.success('¡Cuenta creada! Ya podés consultar el catálogo');
       navigate(homePorRol(data.rol), { replace: true });
     } catch (error) {
-      toast.error(error.response?.data?.message || 'No se pudo crear la cuenta');
+      const data = error.response?.data;
+      if (data?.campo === 'username' || data?.campo === 'email') {
+        setErrores({ [data.campo]: data.message || 'Revisá este dato' });
+        enfocarCampo(data.campo);
+      } else {
+        toast.error(data?.message || 'No se pudo crear la cuenta');
+      }
     } finally {
       setLoading(false);
     }
@@ -73,6 +104,7 @@ const Registro = () => {
                 id="registro-usuario"
                 name="username"
                 type="text"
+                ref={usernameRef}
                 value={form.username}
                 onChange={handleChange}
                 className="input"
@@ -81,7 +113,14 @@ const Registro = () => {
                 maxLength={50}
                 required
                 autoComplete="username"
+                aria-invalid={Boolean(errores.username)}
+                aria-describedby={errores.username ? 'registro-usuario-error' : undefined}
               />
+              {errores.username && (
+                <p id="registro-usuario-error" className="text-sm text-red-600 mt-1">
+                  {errores.username}
+                </p>
+              )}
             </div>
 
             <div>
@@ -106,13 +145,21 @@ const Registro = () => {
                 id="registro-email"
                 name="email"
                 type="email"
+                ref={emailRef}
                 value={form.email}
                 onChange={handleChange}
                 className="input"
                 placeholder="tu@email.com"
                 maxLength={100}
                 autoComplete="email"
+                aria-invalid={Boolean(errores.email)}
+                aria-describedby={errores.email ? 'registro-email-error' : undefined}
               />
+              {errores.email && (
+                <p id="registro-email-error" className="text-sm text-red-600 mt-1">
+                  {errores.email}
+                </p>
+              )}
             </div>
 
             <div>

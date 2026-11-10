@@ -1,6 +1,7 @@
 package com.repuestos.dto;
 
 import com.repuestos.models.Usuario;
+import com.repuestos.services.UsuarioUnicidad;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -10,7 +11,8 @@ import jakarta.validation.constraints.Size;
 public record UsuarioCrearRequest(
         @NotBlank(message = "El nombre de usuario es obligatorio")
         @Size(min = 3, max = 50, message = "El nombre de usuario debe tener entre 3 y 50 caracteres")
-        @Pattern(regexp = "^\\S+$", message = "El nombre de usuario no puede contener espacios")
+        @Pattern(regexp = UsuarioUnicidad.REGEX_USERNAME,
+                message = UsuarioUnicidad.MSG_USERNAME_FORMATO)
         String username,
         @NotBlank(message = "La contraseña es obligatoria")
         @Size(min = 8, max = 72, message = "La contraseña debe tener entre 8 y 72 caracteres")

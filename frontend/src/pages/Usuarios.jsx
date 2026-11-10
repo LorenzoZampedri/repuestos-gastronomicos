@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Search, Plus, Edit2, KeyRound, Power, PowerOff, Mail, Link2, Camera, Eye } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Plus, Edit2, KeyRound, Power, PowerOff, Mail, Link2, Camera, Eye, Receipt } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import Avatar from '../components/Avatar';
 import SelectorFoto from '../components/SelectorFoto';
+import { validarUsername } from '../utils/usuarios';
 
 const ROLES = [
   { value: 'ADMIN', label: 'Administrador' },
@@ -32,6 +34,9 @@ const UsuarioFormModal = ({ open, usuario, onClose, onSaved }) => {
     activo: true,
   });
   const [guardando, setGuardando] = useState(false);
+  const [errores, setErrores] = useState({});
+  const usernameRef = useRef(null);
+  const emailRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
@@ -43,22 +48,45 @@ const UsuarioFormModal = ({ open, usuario, onClose, onSaved }) => {
       rol: usuario?.rol || 'EMPLEADO',
       activo: usuario?.activo ?? true,
     });
+    setErrores({});
     setGuardando(false);
   }, [open, usuario]);
+
+  const enfocarCampo = (campo) => {
+    const ref = campo === 'username' ? usernameRef : campo === 'email' ? emailRef : null;
+    requestAnimationFrame(() => ref?.current?.focus());
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
+    if (errores[name]) {
+      setErrores((previos) => {
+        const siguientes = { ...previos };
+        delete siguientes[name];
+        return siguientes;
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!esEdicion) {
+      const errorUsername = validarUsername(form.username);
+      if (errorUsername) {
+        setErrores({ username: errorUsername });
+        enfocarCampo('username');
+        return;
+      }
+    }
 
     if (!esEdicion && form.password.length < 8) {
       toast.error('La contraseña debe tener al menos 8 caracteres');
       return;
     }
 
+    setErrores({});
     setGuardando(true);
     try {
       const payload = esEdicion
@@ -86,7 +114,13 @@ const UsuarioFormModal = ({ open, usuario, onClose, onSaved }) => {
       onSaved();
       onClose();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'No se pudo guardar el usuario');
+      const data = error.response?.data;
+      if (data?.campo === 'username' || data?.campo === 'email') {
+        setErrores({ [data.campo]: data.message || 'Revisá este dato' });
+        enfocarCampo(data.campo);
+      } else {
+        toast.error(data?.message || 'No se pudo guardar el usuario');
+      }
     } finally {
       setGuardando(false);
     }
@@ -106,6 +140,7 @@ const UsuarioFormModal = ({ open, usuario, onClose, onSaved }) => {
               id="usuario-username"
               name="username"
               type="text"
+              ref={usernameRef}
               value={form.username}
               onChange={handleChange}
               className="input disabled:bg-gray-100 disabled:text-gray-500"
@@ -114,7 +149,14 @@ const UsuarioFormModal = ({ open, usuario, onClose, onSaved }) => {
               required
               disabled={esEdicion}
               autoComplete="off"
+              aria-invalid={Boolean(errores.username)}
+              aria-describedby={errores.username ? 'usuario-username-error' : undefined}
             />
+            {errores.username && (
+              <p id="usuario-username-error" className="text-sm text-red-600 mt-1">
+                {errores.username}
+              </p>
+            )}
             {esEdicion && (
               <p className="text-xs text-gray-500 mt-1">El nombre de usuario no se puede modificar.</p>
             )}
@@ -158,11 +200,19 @@ const UsuarioFormModal = ({ open, usuario, onClose, onSaved }) => {
               id="usuario-email"
               name="email"
               type="email"
+              ref={emailRef}
               value={form.email}
               onChange={handleChange}
               className="input"
               maxLength={100}
+              aria-invalid={Boolean(errores.email)}
+              aria-describedby={errores.email ? 'usuario-email-error' : undefined}
             />
+            {errores.email && (
+              <p id="usuario-email-error" className="text-sm text-red-600 mt-1">
+                {errores.email}
+              </p>
+            )}
           </div>
 
           <div>
@@ -404,6 +454,7 @@ const VistaComoModal = ({ open, usuario, onClose, onConfirm, iniciando }) => {
 
 const Usuarios = () => {
   const { user, actualizarFoto, iniciarVistaComo } = useAuth();
+  const navigate = useNavigate();
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -440,6 +491,13 @@ const Usuarios = () => {
   const handleEditar = (usuario) => {
     setUsuarioEditando(usuario);
     setFormOpen(true);
+  };
+
+  const handleVerVentas = (usuario) => {
+    const nombre = usuario.nombre?.trim() || usuario.username;
+    navigate(
+      `/ventas?filtro=todo&usuario=${usuario.id}&usuarioNombre=${encodeURIComponent(nombre)}`
+    );
   };
 
   const handleIniciarVista = async () => {
@@ -604,6 +662,16 @@ const Usuarios = () => {
                               aria-label={`Ver como ${usuario.username}`}
                             >
                               <Eye className="w-4 h-4" aria-hidden="true" />
+                            </button>
+                          )}
+                          {(usuario.rol === 'ADMIN' || usuario.rol === 'EMPLEADO') && (
+                            <button
+                              onClick={() => handleVerVentas(usuario)}
+                              className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                              title={`Ver ventas de ${usuario.username}`}
+                              aria-label={`Ver ventas de ${usuario.username}`}
+                            >
+                              <Receipt className="w-4 h-4" aria-hidden="true" />
                             </button>
                           )}
                           <button

@@ -6,6 +6,7 @@ import com.repuestos.models.AccionAuditoria;
 import com.repuestos.models.Usuario;
 import com.repuestos.repositories.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -52,8 +53,9 @@ public class UsuarioService implements UserDetailsService {
         if (username == null || username.isBlank()) {
             throw new NegocioException(HttpStatus.BAD_REQUEST, "El nombre de usuario es obligatorio");
         }
+        validarFormatoUsernameNuevo(username);
         if (usuarioRepository.existsByUsernameIgnoreCase(username)) {
-            throw new NegocioException(HttpStatus.CONFLICT, "El nombre de usuario ya existe");
+            throw UsuarioUnicidad.usernameDuplicado();
         }
         if (usuario.getPasswordHash() == null || usuario.getPasswordHash().isBlank()) {
             throw new NegocioException(HttpStatus.BAD_REQUEST, "La contraseña es obligatoria");
@@ -65,9 +67,10 @@ public class UsuarioService implements UserDetailsService {
         usuario.setUsername(username);
         usuario.setNombre(usuario.getNombre() == null ? null : usuario.getNombre().trim());
         usuario.setEmail(normalizarEmail(usuario.getEmail()));
+        validarEmailDisponible(usuario.getEmail(), null);
         usuario.setActivo(usuario.getActivo() == null || usuario.getActivo());
         usuario.setPasswordHash(passwordEncoder.encode(usuario.getPasswordHash()));
-        Usuario guardado = usuarioRepository.save(usuario);
+        Usuario guardado = guardarUsuario(usuario);
         if (guardado.getRol() == Usuario.Rol.CLIENTE) {
             clienteService.asegurarClienteParaUsuario(guardado);
         }
@@ -87,6 +90,7 @@ public class UsuarioService implements UserDetailsService {
         return guardado;
     }
 
+    @Transactional
     public Usuario registrarCliente(String username, String password, String nombre, String email) {
         Usuario usuario = Usuario.builder()
                 .username(username)
@@ -163,11 +167,13 @@ public class UsuarioService implements UserDetailsService {
 
         Map<String, Object> antes = datosEditablesUsuario(usuario);
 
+        String email = normalizarEmail(request.email());
+        validarEmailDisponible(email, usuario.getId());
         usuario.setNombre(request.nombre().trim());
-        usuario.setEmail(normalizarEmail(request.email()));
+        usuario.setEmail(email);
         usuario.setRol(request.rol());
         usuario.setActivo(request.activo());
-        Usuario guardado = usuarioRepository.save(usuario);
+        Usuario guardado = guardarUsuario(usuario);
         if (guardado.getRol() == Usuario.Rol.CLIENTE) {
             clienteService.asegurarClienteParaUsuario(guardado);
         }
@@ -316,6 +322,41 @@ public class UsuarioService implements UserDetailsService {
         datos.put("rol", usuario.getRol() == null ? null : usuario.getRol().name());
         datos.put("activo", usuario.getActivo());
         return datos;
+    }
+
+    private void validarFormatoUsernameNuevo(String username) {
+        if (username.length() < 3 || username.length() > 50) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
+                    UsuarioUnicidad.MSG_USERNAME_LARGO);
+        }
+        if (!UsuarioUnicidad.PATRON_USERNAME.matcher(username).matches()) {
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
+                    UsuarioUnicidad.MSG_USERNAME_FORMATO);
+        }
+    }
+
+    private void validarEmailDisponible(String email, Long excluirId) {
+        if (email == null) {
+            return;
+        }
+        boolean existe = excluirId == null
+                ? usuarioRepository.existsByEmailIgnoreCase(email)
+                : usuarioRepository.existsByEmailIgnoreCaseAndIdNot(email, excluirId);
+        if (existe) {
+            throw UsuarioUnicidad.emailDuplicado();
+        }
+    }
+
+    private Usuario guardarUsuario(Usuario usuario) {
+        try {
+            return usuarioRepository.saveAndFlush(usuario);
+        } catch (DataIntegrityViolationException ex) {
+            NegocioException traducida = UsuarioUnicidad.desdeViolacion(ex);
+            if (traducida != null) {
+                throw traducida;
+            }
+            throw ex;
+        }
     }
 
     private String normalizarUsername(String username) {
