@@ -357,24 +357,29 @@ const CuentasCorrientes = () => {
                   }`}>
                     {formatMoney(Math.abs(saldoSeleccionado), 'ARS')}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setCargarDeudaAbierto(true)}
-                    className="mt-2 inline-flex items-center gap-1 text-sm text-primary-700 hover:text-primary-900"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Cargar deuda
-                  </button>
-                  {saldoSeleccionado > 0 && <button
-                    onClick={() => {
-                      setAjustandoSaldo(clienteSeleccionado.id);
-                      setMontoAjuste('');
-                      setPasswordAjuste('');
-                    }}
-                    className="mt-2 text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    Registrar pago
-                  </button>}
+                  <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCargarDeudaAbierto(true)}
+                      className="btn-secondary inline-flex items-center gap-1 text-sm whitespace-nowrap"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Cargar deuda
+                    </button>
+                    {saldoSeleccionado > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAjustandoSaldo(clienteSeleccionado.id);
+                          setMontoAjuste('');
+                          setPasswordAjuste('');
+                        }}
+                        className="btn-secondary inline-flex items-center text-sm whitespace-nowrap"
+                      >
+                        Registrar pago
+                      </button>
+                    )}
+                  </div>
                   {ajustandoSaldo === clienteSeleccionado.id && saldoSeleccionado > 0 && (
                     <div className="mt-2 flex flex-col gap-2 items-end">
                       <div className="flex gap-2">
