@@ -18,7 +18,7 @@ import java.util.List;
 
 @Slf4j
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 1)
+@Order(Ordered.HIGHEST_PRECEDENCE + 2)
 @RequiredArgsConstructor
 public class ClienteUsuarioMigration implements CommandLineRunner {
 

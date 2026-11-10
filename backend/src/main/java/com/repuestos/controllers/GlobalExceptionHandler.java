@@ -2,6 +2,7 @@ package com.repuestos.controllers;
 
 import com.repuestos.services.ImagenInvalidaException;
 import com.repuestos.services.NegocioException;
+import com.repuestos.services.UsuarioUnicidad;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -47,11 +48,16 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> validacion(MethodArgumentNotValidException ex) {
-        String message = ex.getBindingResult().getFieldErrors().stream()
+        Map<String, String> body = new LinkedHashMap<>();
+        ex.getBindingResult().getFieldErrors().stream()
                 .findFirst()
-                .map(error -> error.getDefaultMessage())
-                .orElse("Datos inválidos");
-        return ResponseEntity.badRequest().body(Map.of("message", message));
+                .ifPresentOrElse(
+                        error -> {
+                            body.put("message", error.getDefaultMessage());
+                            body.put("campo", error.getField());
+                        },
+                        () -> body.put("message", "Datos inválidos"));
+        return ResponseEntity.badRequest().body(body);
     }
 
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
@@ -60,7 +66,12 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<Map<String, String>> dataIntegrityViolation(DataIntegrityViolationException ex) {
+    public ResponseEntity<Map<String, Object>> dataIntegrityViolation(DataIntegrityViolationException ex) {
+        NegocioException traducida = UsuarioUnicidad.desdeViolacion(ex);
+        if (traducida != null) {
+            log.warn("Violación de unicidad de usuario: {}", ex.getMostSpecificCause().getMessage());
+            return negocio(traducida);
+        }
         log.warn("Violación de integridad de datos: {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("message", "No se pudo guardar: algún dato ya existe o no es válido"));

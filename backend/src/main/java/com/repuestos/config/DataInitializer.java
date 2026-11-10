@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 2)
+@Order(Ordered.HIGHEST_PRECEDENCE + 3)
 public class DataInitializer implements CommandLineRunner {
 
     private final UsuarioRepository usuarioRepository;
@@ -44,11 +44,17 @@ public class DataInitializer implements CommandLineRunner {
                     log.warn("ADMIN_PASSWORD no está definida. Se creó el usuario admin con la "
                             + "contraseña por defecto 'admin123'. Cambiala antes de usar en producción.");
                 }
+                String emailAdmin = "admin@repuestos.com";
+                if (usuarioRepository.existsByEmailIgnoreCase(emailAdmin)) {
+                    log.warn("El email {} ya está en uso; el usuario admin se creará sin email",
+                            emailAdmin);
+                    emailAdmin = null;
+                }
                 Usuario admin = Usuario.builder()
                     .username("admin")
                     .passwordHash(passwordEncoder.encode(password))
                     .nombre("Administrador")
-                    .email("admin@repuestos.com")
+                    .email(emailAdmin)
                     .rol(Usuario.Rol.ADMIN)
                     .activo(true)
                     .build();

@@ -102,6 +102,13 @@ Los administradores pueden crear, editar, activar/desactivar y restablecer
 contraseñas desde **Usuarios** en el panel. El registro público (`/registro`)
 siempre crea usuarios con rol `CLIENTE`.
 
+El `username` y el `email` son únicos sin distinguir mayúsculas/minúsculas (los
+emails vacíos no compiten). El alta y la edición rechazan duplicados con `409` y
+código `USERNAME_DUPLICADO` o `EMAIL_DUPLICADO`, indicando el `campo` afectado.
+En PostgreSQL, `UsuarioUnicidadMigration` crea los índices únicos funcionales al
+arrancar; si encuentra duplicados previos no frena la aplicación, deja un `WARN`
+con los casos y omite el índice para resolverlos a mano.
+
 Endpoints principales:
 
 - `POST /api/auth/register` - registro público de clientes.
@@ -155,6 +162,14 @@ Endpoints:
 
 - `POST /api/usuarios/{id}/vista-como` - inicia la vista (solo ADMIN).
 - `POST /api/auth/vista-como/fin` - finaliza la vista en curso.
+
+### Ver ventas de un usuario
+
+En **Usuarios**, las filas de `ADMIN` y `EMPLEADO` tienen un botón de
+comprobante (**Ver ventas**) que abre **Ventas** con el filtro **Personal**
+preseleccionado y el rango **Todas**. La selección se conserva aunque la persona
+no tenga ventas en el período: aparece con conteo `0` en el desplegable en lugar
+de descartarse.
 
 ## 🛒 Pedidos online
 

@@ -6,6 +6,7 @@ import {
   construirOpcionesClientes,
   construirOpcionesUsuarios,
   filtrarVentas,
+  leerSeleccionDesdeUrl,
   sumarTotales,
 } from './ventasFiltros.js';
 
@@ -310,4 +311,42 @@ test('filtrarVentas no rompe con ventas sin usuario y devuelve vacío al pedir u
 
 test('sumarTotales suma solo los totales válidos', () => {
   assert.equal(sumarTotales([{ total: 100 }, { total: 50 }, { total: null }]), 150);
+});
+
+test('leerSeleccionDesdeUrl lee usuario con y sin nombre', () => {
+  assert.deepEqual(
+    leerSeleccionDesdeUrl('?usuario=15&usuarioNombre=Empleado%20E2E'),
+    { clientes: {}, usuarios: { 15: 'Empleado E2E' } }
+  );
+  assert.deepEqual(
+    leerSeleccionDesdeUrl('?usuario=15'),
+    { clientes: {}, usuarios: { 15: '' } }
+  );
+});
+
+test('leerSeleccionDesdeUrl es simétrico para cliente', () => {
+  assert.deepEqual(
+    leerSeleccionDesdeUrl('?cliente=7&clienteNombre=Mar%C3%ADa'),
+    { clientes: { 7: 'María' }, usuarios: {} }
+  );
+});
+
+test('leerSeleccionDesdeUrl ignora ids no numéricos', () => {
+  assert.deepEqual(
+    leerSeleccionDesdeUrl('?usuario=abc&usuarioNombre=Alguien&cliente=12x&clienteNombre=Otro'),
+    { clientes: {}, usuarios: {} }
+  );
+});
+
+test('leerSeleccionDesdeUrl recorta el nombre a 100 caracteres', () => {
+  const nombre = 'x'.repeat(150);
+  const seleccion = leerSeleccionDesdeUrl(`?usuario=3&usuarioNombre=${nombre}`);
+  assert.equal(seleccion.usuarios['3'].length, 100);
+});
+
+test('un hash #venta-ID anula la selección de la URL', () => {
+  assert.deepEqual(
+    leerSeleccionDesdeUrl('?usuario=15&usuarioNombre=Empleado', '#venta-42'),
+    { clientes: {}, usuarios: {} }
+  );
 });
